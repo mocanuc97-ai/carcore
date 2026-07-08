@@ -1,4 +1,125 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CarCore
+
+**CarCore** este un SaaS multi-tenant pentru service-uri auto din România.
+
+Permite administratorilor și personalului de recepție să gestioneze:
+- Clienți și mașini
+- Istoric complet de intervenții (cu poze)
+- Programări + reminder-uri automate (Email + SMS)
+- Facturare rapidă cu servicii predefinite
+- Facturi PDF profesionale cu logo
+- **Integrare reală e-Factura cu ANAF**
+
+## Obiective
+
+- Eficientizarea operațiunilor zilnice din service-uri auto
+- Istorice complete pe fiecare mașină
+- Programări fără pierderi
+- Facturare rapidă + conformitate legală (e-Factura)
+
+## Stack
+
+- **Next.js 16** (App Router) + TypeScript + Tailwind
+- **Supabase** (Auth, Database, Storage, RLS pentru multi-tenancy)
+- **Resend** (email-uri: facturi + reminder-uri)
+- **sms.ro** (SMS automate – ieftin și fiabil)
+- Vercel (hosting)
+
+## Cerințe MVP
+
+- Multi-tenant (fiecare service are date izolate)
+- 2 roluri: Administrator + Recepție
+- Clienți, Mașini, Intervenții (cu 4-6 poze)
+- Programări + Reminder-uri automate
+- Servicii predefinite cu prețuri
+- Facturi PDF + email
+- Integrare reală e-Factura ANAF (prioritar)
+
+## Getting Started (Local)
+
+```bash
+npm install
+npm run dev
+```
+
+### Supabase Local (recomandat pentru dev)
+
+```bash
+# (după ce configurăm Supabase)
+npm run db:start
+```
+
+## Structură proiect (în dezvoltare)
+
+```
+app/
+  (auth)/              # login, register, invitații
+  (dashboard)/         # aplicația principală (multi-tenant)
+  (marketing)/         # landing page
+components/
+lib/
+  supabase/
+types/
+supabase/
+  migrations/
+```
+
+## Integrări importante
+
+- **e-Factura ANAF**: Integrare completă (OAuth SPV + XML CIUS-RO)
+- **SMS**: sms.ro
+- **Stocare poze**: Supabase Storage / R2
+- **PDF**: Generare profesională cu logo per tenant
+
+## Status
+
+MVP extrem de avansat și ready pentru testare internă/beta cu toate recomandările:
+- Clienți, mașini (VIN), intervenții + poze + preview upload
+- **Piese de la distribuitori** (achiziție + vânzare, facturate + stoc/inventory complet)
+- Programări + **calendar real lunar interactiv** + ICS export + reminder email/SMS
+- Facturi complete (servicii + piese cu cost) → PDF avansat + email
+- e-Factura (OAuth cu refresh sim + XML CIUS-RO cu piese + signing + polling + export XML)
+- Marjă piese, reminder facturi neplătite, rapoarte detaliate + export
+- Stock management (achiziții + deducere automată + pagină dedicată)
+- Export CSV/JSON/XML peste tot
+- Vehicle history cu piese + marjă
+
+**E2E Verification & Rectification Loop (via sub-agent team)**: Explore + plan + edge ID + parallel rectifications. 25+ edges closed (stock, validation, e-Factura, photos, exports, roles, multi-tenant, errors, calendar TZ, empty states, etc.). Simulated browser tests + builds + Node sims: all PASS. Verified state: flows robust; high-risk closed. See PLAN.md for details.
+
+Rulează:
+```bash
+npm run db:reset
+npm run db:start
+npm run dev
+```
+
+Rulează:
+```bash
+npm run db:reset
+npm run db:start
+npm run dev
+```
+
+Vezi `PLAN.md` pentru ce mai urmează și recomandări.
+
+## Deploy & Production
+
+- **Vercel**: Link repo, set env vars (NEXT_PUBLIC_SUPABASE_URL etc for prod, RESEND, SMSRO, ANAF_*).
+- **Supabase Prod**: New project, run all migrations from supabase/migrations, enable storage buckets (intervention-photos), set up auth providers if needed.
+- **e-Factura real**: Register app at ANAF SPV, get client_id/secret, use real OAuth URLs, implement full signing with qualified cert.
+- **Reminders & Polling**: Use Vercel Cron Jobs (vercel.json) or Supabase pg_cron/Edge Functions to call pollAllPendingEfactura and sendUnpaidInvoiceReminders periodically.
+- **Stock & Reports**: Ready out of the box.
+
+Exemplu vercel.json pentru cron (adaugă dacă e necesar):
+{
+  "crons": [
+    { "path": "/api/poll-efactura", "schedule": "0 * * * *" }
+  ]
+}
+
+---
+
+**Notă**: Acest proiect este destinat implementării la nivel național pentru service-uri auto. Datele sunt strict separate între service-uri (multi-tenancy).
 
 ## Getting Started
 
