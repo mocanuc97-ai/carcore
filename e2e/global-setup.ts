@@ -26,9 +26,13 @@ async function globalSetup(config: FullConfig) {
   const fullName = 'E2E Admin';
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'REDACTED_ANON_KEY';
-  // Hardcoded live local keys as reliable fallback (global-setup node context may not auto-load .env the same as Next)
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'REDACTED_SERVICE_KEY';
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!anonKey || !serviceKey) {
+    console.error('Missing Supabase keys. Please set NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY in .env');
+    process.exit(1);
+  }
 
   let createdUserId: string | null = null;
   let tenantId: string | null = null;
