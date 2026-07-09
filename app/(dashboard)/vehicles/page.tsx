@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import ExportButton from '@/components/ExportButton';
+import IncompleteBadge from '@/components/IncompleteBadge';
+import { getVehicleMissingFields } from '@/lib/profile-completeness';
 import { getCurrentProfile } from '@/lib/supabase/server';
 
 async function addVehicle(formData: FormData) {
@@ -72,6 +74,7 @@ export default async function VehiclesPage() {
               <th className="p-4 text-left">Marcă / Model</th>
               <th className="p-4 text-left">VIN</th>
               <th className="p-4 text-left">Nr. înmatriculare</th>
+              <th className="p-4 text-left"></th>
               <th className="p-4 text-left">Acțiuni</th>
             </tr>
           </thead>
@@ -82,12 +85,13 @@ export default async function VehiclesPage() {
                 <td className="p-4 font-medium">{v.make} {v.model} {v.year ? `(${v.year})` : ''}</td>
                 <td className="p-4 font-mono text-xs">{v.vin || '-'}</td>
                 <td className="p-4">{v.license_plate || '-'}</td>
+                <td className="p-4"><IncompleteBadge missing={getVehicleMissingFields(v)} /></td>
                 <td className="p-4">
                   <a href={`/vehicles/${v.id}`} className="text-blue-600 text-sm hover:underline">Istoric complet</a>
                 </td>
               </tr>
             )) : (
-              <tr><td colSpan={5} className="p-8 text-center text-zinc-500">Niciun vehicul înregistrat încă.</td></tr>
+              <tr><td colSpan={6} className="p-8 text-center text-zinc-500">Niciun vehicul înregistrat încă.</td></tr>
             )}
           </tbody>
         </table>

@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import ExportButton from '@/components/ExportButton';
+import IncompleteBadge from '@/components/IncompleteBadge';
+import { getVehicleMissingFields } from '@/lib/profile-completeness';
 import { getCurrentProfile } from '@/lib/supabase/server';
+import { updateVehicle } from './actions';
 
 export default async function VehicleHistory({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -50,13 +53,30 @@ export default async function VehicleHistory({ params }: { params: Promise<{ id:
     <div>
       <Link href="/vehicles" className="text-sm text-blue-600">← Înapoi la mașini</Link>
 
-      <h1 className="text-2xl font-semibold mt-4">
-        {vehicle.make} {vehicle.model} {vehicle.year ? `(${vehicle.year})` : ''}
-      </h1>
+      <div className="flex items-center gap-3 mt-4">
+        <h1 className="text-2xl font-semibold">
+          {vehicle.make} {vehicle.model} {vehicle.year ? `(${vehicle.year})` : ''}
+        </h1>
+        <IncompleteBadge missing={getVehicleMissingFields(vehicle)} />
+      </div>
       <p className="text-zinc-600">Client: {vehicle.clients?.name} • VIN: {vehicle.vin || '—'} • Nr: {vehicle.license_plate || '—'}</p>
 
+      <div className="bg-white rounded-2xl p-6 mt-4 max-w-2xl">
+        <h3 className="font-medium mb-4">Editează datele mașinii</h3>
+        <form action={updateVehicle.bind(null, vehicle.id)} className="grid grid-cols-2 gap-3">
+          <input name="make" defaultValue={vehicle.make} placeholder="Marcă" required className="border rounded-xl px-4 py-2" />
+          <input name="model" defaultValue={vehicle.model} placeholder="Model" required className="border rounded-xl px-4 py-2" />
+          <input name="vin" defaultValue={vehicle.vin || ''} placeholder="Serie caroserie (VIN)" className="border rounded-xl px-4 py-2" />
+          <input name="license_plate" defaultValue={vehicle.license_plate || ''} placeholder="Număr înmatriculare" className="border rounded-xl px-4 py-2" />
+          <input name="year" type="number" defaultValue={vehicle.year || ''} placeholder="An" className="border rounded-xl px-4 py-2" />
+          <input name="mileage" type="number" defaultValue={vehicle.mileage || ''} placeholder="Km" className="border rounded-xl px-4 py-2" />
+          <input name="color" defaultValue={vehicle.color || ''} placeholder="Culoare" className="border rounded-xl px-4 py-2 col-span-2" />
+          <button type="submit" className="bg-black text-white rounded-xl px-4 py-2 col-span-2">Salvează</button>
+        </form>
+      </div>
+
       <div className="mt-2">
-        <ExportButton 
+        <ExportButton
           data={[
             ...(interventions || []).map((i: any) => ({ type: 'interventie', data: new Date(i.performed_at).toISOString(), descriere: i.description, poze: i.photos?.length || 0 })),
             ...(parts || []).map((p: any) => ({ type: 'piesa', nume: p.name, cantitate: p.quantity, pret_vanzare: p.selling_price, marja: (p.selling_price - p.purchase_price) * p.quantity }))

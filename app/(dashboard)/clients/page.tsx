@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import Link from 'next/link';
 import ExportButton from '@/components/ExportButton';
+import IncompleteBadge from '@/components/IncompleteBadge';
+import { getClientMissingFields } from '@/lib/profile-completeness';
 import { getCurrentProfile } from '@/lib/supabase/server';
 
 async function addClient(formData: FormData) {
@@ -15,6 +18,7 @@ async function addClient(formData: FormData) {
       name: formData.get('name'),
       phone: formData.get('phone'),
       email: formData.get('email') || null,
+      address: formData.get('address') || null,
     });
 
     revalidatePath('/clients');
@@ -36,7 +40,16 @@ export default async function ClientsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-6">Clienți</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold">Clienți</h1>
+        <Link
+          href="/clients/import"
+          className="text-sm px-4 py-2 border rounded-xl hover:bg-zinc-100"
+          data-testid="import-clients-link"
+        >
+          Import din CSV
+        </Link>
+      </div>
 
       <div className="bg-white rounded-2xl p-6 mb-8">
         <h3 className="font-medium mb-4">Adaugă client nou</h3>
@@ -44,7 +57,8 @@ export default async function ClientsPage() {
           <input name="name" placeholder="Nume complet" required className="border rounded-xl px-4 py-2" data-testid="client-name" />
           <input name="phone" placeholder="Telefon" required className="border rounded-xl px-4 py-2" data-testid="client-phone" />
           <input name="email" placeholder="Email (opțional)" className="border rounded-xl px-4 py-2" data-testid="client-email" />
-          <button type="submit" className="bg-black text-white rounded-xl" data-testid="add-client">Adaugă</button>
+          <input name="address" placeholder="Adresă (opțional)" className="border rounded-xl px-4 py-2" data-testid="client-address" />
+          <button type="submit" className="bg-black text-white rounded-xl md:col-start-4" data-testid="add-client">Adaugă</button>
         </form>
       </div>
 
@@ -59,20 +73,26 @@ export default async function ClientsPage() {
               <th className="text-left p-4">Telefon</th>
               <th className="text-left p-4">Email</th>
               <th className="text-left p-4">Data</th>
+              <th className="text-left p-4"></th>
             </tr>
           </thead>
           <tbody>
             {clients && clients.length > 0 ? (
               clients.map((client: any) => (
                 <tr key={client.id} className="border-b last:border-none">
-                  <td className="p-4 font-medium">{client.name}</td>
+                  <td className="p-4 font-medium">
+                    <Link href={`/clients/${client.id}`} className="hover:underline">{client.name}</Link>
+                  </td>
                   <td className="p-4">{client.phone}</td>
                   <td className="p-4 text-zinc-600">{client.email || '-'}</td>
                   <td className="p-4 text-zinc-500">{new Date(client.created_at).toLocaleDateString('ro-RO')}</td>
+                  <td className="p-4">
+                    <IncompleteBadge missing={getClientMissingFields(client)} />
+                  </td>
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={4} className="p-8 text-center text-zinc-500">Niciun client înregistrat încă.</td></tr>
+              <tr><td colSpan={5} className="p-8 text-center text-zinc-500">Niciun client înregistrat încă.</td></tr>
             )}
           </tbody>
         </table>

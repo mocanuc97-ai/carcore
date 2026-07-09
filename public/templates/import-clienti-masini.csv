@@ -1,0 +1,4 @@
+nume_client,telefon_client,email_client,adresa_client,marca,model,an,vin,numar_inmatriculare,km,culoare
+Ion Popescu,0712345678,ion.popescu@exemplu.ro,"Str. Exemplu nr. 1, București",Dacia,Logan,2019,UU1LSDAAH12345678,B123ABC,85000,Gri
+Ion Popescu,0712345678,ion.popescu@exemplu.ro,"Str. Exemplu nr. 1, București",Volkswagen,Golf,2015,,B456DEF,120000,Alb
+Maria Ionescu,0798765432,,,Renault,Clio,2021,,,15000,Roșu
