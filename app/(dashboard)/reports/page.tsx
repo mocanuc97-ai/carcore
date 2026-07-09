@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import ExportButton from '@/components/ExportButton';
+import ExportJsonButton from '@/components/ExportJsonButton';
 import { getCurrentProfile } from '@/lib/supabase/server';
 
 export default async function ReportsPage() {
@@ -14,7 +15,7 @@ export default async function ReportsPage() {
 
   const marginByDistributor: Record<string, { totalMargin: number; count: number }> = {};
 
-  (parts || []).forEach((p: any) => {
+  (parts || []).forEach((p: { distributor: string | null; quantity: number; purchase_price: number; selling_price: number }) => {
     const dist = p.distributor || 'Necunoscut';
     const margin = (p.selling_price - p.purchase_price) * p.quantity;
     if (!marginByDistributor[dist]) marginByDistributor[dist] = { totalMargin: 0, count: 0 };
@@ -28,8 +29,8 @@ export default async function ReportsPage() {
     .select('total')
     .eq('tenant_id', profile?.tenant_id);
 
-  let servicesTotal = (invoicesForTotal || []).reduce((s, i: any) => s + Number(i.total), 0) * 0.7; // approx
-  let partsTotal = (invoicesForTotal || []).reduce((s, i: any) => s + Number(i.total), 0) * 0.3; // approx from parts
+  const servicesTotal = (invoicesForTotal || []).reduce((s, i: { total: number }) => s + Number(i.total), 0) * 0.7; // approx
+  const partsTotal = (invoicesForTotal || []).reduce((s, i: { total: number }) => s + Number(i.total), 0) * 0.3; // approx from parts
 
 
   return (
@@ -69,20 +70,10 @@ export default async function ReportsPage() {
           }))} 
           filename={`raport_marja_${new Date().toISOString().split('T')[0]}`} 
         />
-        <button 
-          onClick={() => {
-            const json = JSON.stringify(marginByDistributor, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `raport_marja_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-          }}
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700"
-        >
-          Export JSON
-        </button>
+        <ExportJsonButton
+          data={marginByDistributor}
+          filename={`raport_marja_${new Date().toISOString().split('T')[0]}`}
+        />
       </div>
       <div className="mt-4 text-xs text-zinc-500">
         Raportul include numai piesele facturate/inregistrate. Extinde cu filtre pe dată.
