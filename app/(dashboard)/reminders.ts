@@ -1,10 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { Resend } from 'resend';
+import { getResendClient } from '@/lib/resend/client';
 import { sendSMS } from '@/lib/sms/smsro';
-
-const resend = new Resend(process.env.RESEND_API_KEY || '');
 
 export async function sendUnpaidInvoiceReminders() {
   const supabase = await createClient();
@@ -27,9 +25,10 @@ export async function sendUnpaidInvoiceReminders() {
     .lt('issued_at', sevenDaysAgo)
     .limit(10);
 
+  const resend = getResendClient();
   let sent = 0;
   for (const inv of unpaid || []) {
-    if (!(inv.clients as any)?.email) continue;
+    if (!(inv.clients as any)?.email || !resend) continue;
 
     try {
       await resend.emails.send({

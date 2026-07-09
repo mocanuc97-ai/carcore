@@ -3,12 +3,10 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateInvoicePDF } from '@/lib/invoice/generate';
-import { Resend } from 'resend';
+import { getResendClient } from '@/lib/resend/client';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { parseAndValidateInvoiceParts } from '@/lib/validation';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function createAndSendInvoice(formData: FormData) {
   const supabase = await createClient();
@@ -268,7 +266,8 @@ export async function createAndSendInvoice(formData: FormData) {
   }
 
   // Send email with PDF attachment
-  if (client.email && process.env.RESEND_API_KEY) {
+  const resend = getResendClient();
+  if (client.email && resend) {
     try {
       const attachments = pdfBuffer
         ? [

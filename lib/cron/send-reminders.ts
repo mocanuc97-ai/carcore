@@ -1,8 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Resend } from 'resend';
+import { getResendClient } from '@/lib/resend/client';
 import { sendSMS } from '@/lib/sms/smsro';
-
-const resend = new Resend(process.env.RESEND_API_KEY || '');
 
 interface UnpaidInvoiceRow {
   id: string;
@@ -27,9 +25,10 @@ export async function sendUnpaidInvoiceRemindersForAllTenants() {
     .limit(200)
     .returns<UnpaidInvoiceRow[]>();
 
+  const resend = getResendClient();
   let sent = 0;
   for (const inv of unpaid || []) {
-    if (!inv.clients?.email) continue;
+    if (!inv.clients?.email || !resend) continue;
     const tenantName = inv.tenants?.name || 'Service';
 
     try {
