@@ -73,7 +73,7 @@ export default async function DashboardHome() {
         </div>
         <div className="bg-white p-4 rounded-xl text-zinc-600">
           e-Factura și SMS în modul stub (pregătite). Adaugă chei în .env pentru real.<br />
-          <a href="/dashboard/reports" className="underline">Vezi rapoarte</a> | <a href="/dashboard/parts-inventory" className="underline">Stoc piese</a>
+          <a href="/reports" className="underline">Vezi rapoarte</a> | <a href="/parts-inventory" className="underline">Stoc piese</a>
         </div>
       </div>
 

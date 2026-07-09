@@ -16,11 +16,11 @@ export default function SettingsClient({ tenant: initialTenant, anafConnection: 
     if (params.get('success') === 'anaf_connected') {
       toast.success('Conectat cu succes la ANAF (simulare)!');
       // Clean URL
-      window.history.replaceState({}, '', '/dashboard/settings');
+      window.history.replaceState({}, '', '/settings');
     }
     if (params.get('error')) {
       toast.error('Eroare la conectare ANAF');
-      window.history.replaceState({}, '', '/dashboard/settings');
+      window.history.replaceState({}, '', '/settings');
     }
   }, []);
 

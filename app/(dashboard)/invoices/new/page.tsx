@@ -184,7 +184,7 @@ export default function NewInvoicePage() {
 
     try {
       await createAndSendInvoice(formData);
-      window.location.href = '/dashboard/invoices';
+      window.location.href = '/invoices';
     } catch (err: any) {
       toast.error(err.message || 'Eroare la creare factură');
     }
@@ -198,10 +198,11 @@ export default function NewInvoicePage() {
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl max-w-2xl space-y-5">
         <div>
           <label className="block text-sm font-medium mb-1">Client</label>
-          <select 
-            value={selectedClientId} 
-            onChange={(e) => setSelectedClientId(e.target.value)} 
-            required 
+          <select
+            data-testid="invoice-client-select"
+            value={selectedClientId}
+            onChange={(e) => setSelectedClientId(e.target.value)}
+            required
             className="w-full border rounded-xl px-4 py-2.5"
           >
             <option value="">Selectează client</option>

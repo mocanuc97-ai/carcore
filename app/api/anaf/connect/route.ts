@@ -16,10 +16,10 @@ export async function GET(request: NextRequest) {
     .single();
 
   if (!profile) {
-    return NextResponse.redirect(new URL('/dashboard/settings?error=no_profile', request.url));
+    return NextResponse.redirect(new URL('/settings?error=no_profile', request.url));
   }
   if (profile.role !== 'admin') {
-    return NextResponse.redirect(new URL('/dashboard/settings?error=only_admin_anaf', request.url));
+    return NextResponse.redirect(new URL('/settings?error=only_admin_anaf', request.url));
   }
 
   const tenantId = profile.tenant_id;

@@ -76,8 +76,8 @@ export async function addPartToIntervention(formData: FormData) {
     }
   }
 
-  revalidatePath('/dashboard/interventions');
-  revalidatePath('/dashboard/parts-inventory');
+  revalidatePath('/interventions');
+  revalidatePath('/parts-inventory');
   } catch (err: any) {
     console.error('[addPartToIntervention error]', err);
     throw new Error(err.message || 'Eroare la adăugare piesă');

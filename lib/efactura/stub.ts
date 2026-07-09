@@ -24,7 +24,7 @@ export interface AnafConnection {
 
 import { signEfacturaXML } from './sign';
 
-export function isValidAnafConnection(connection: any | null | undefined): boolean {
+export function isValidAnafConnection(connection: AnafConnection | null | undefined): boolean {
   if (!connection) return false;
   if (!connection.access_token) return false;
   if (connection.status === 'expired' || connection.status === 'disconnected' || connection.status === 'error') return false;
@@ -39,12 +39,43 @@ export function isValidAnafConnection(connection: any | null | undefined): boole
   return true;
 }
 
-export function generateEfacturaXML(invoice: any, items: any[], tenant: any, client: any): string {
+interface EfacturaInvoiceInput {
+  number?: string;
+  issued_at?: string;
+  total: number | string;
+}
+
+interface EfacturaLineItemInput {
+  description?: string;
+  quantity?: number;
+  unit_price: number | string;
+  total: number | string;
+}
+
+interface EfacturaTenantInput {
+  cui?: string;
+  name?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+}
+
+interface EfacturaClientInput {
+  name?: string;
+  phone?: string;
+}
+
+export function generateEfacturaXML(
+  invoice: EfacturaInvoiceInput,
+  items: EfacturaLineItemInput[],
+  tenant: EfacturaTenantInput,
+  client: EfacturaClientInput
+): string {
   const issueDate = new Date(invoice.issued_at || Date.now()).toISOString().split('T')[0];
   const cui = tenant?.cui || ''; // must come from connection.cui passed by caller consistently
 
   // Build line items with proper structure
-  const invoiceLines = (items || []).map((item: any, index: number) => {
+  const invoiceLines = (items || []).map((item, index) => {
     const isPart = item.description?.startsWith('[Piesă]');
     const name = escapeXml(item.description || '');
     return `
@@ -153,7 +184,7 @@ export function generateEfacturaXML(invoice: any, items: any[], tenant: any, cli
 </Invoice>`;
 }
 
-function escapeXml(unsafe: any): string {
+function escapeXml(unsafe: unknown): string {
   if (unsafe == null) return '';
   const str = String(unsafe);
   // Escape in order: & first, then others. Covers special chars & < > " ' for XML content/attrs.
@@ -166,8 +197,8 @@ function escapeXml(unsafe: any): string {
 }
 
 export async function submitToANAF(
-  xml: string, 
-  connection: any, 
+  xml: string,
+  connection: AnafConnection,
   tenantId: string
 ): Promise<{ success: boolean; efactura_id?: string; status?: string; message?: string }> {
   

@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
 
   const tenantId = profile?.tenant_id;
   if (!code || !tenantId || (paramTenantId && paramTenantId !== tenantId)) {
-    return NextResponse.redirect(new URL('/dashboard/settings?error=invalid_anaf_callback', request.url));
+    return NextResponse.redirect(new URL('/settings?error=invalid_anaf_callback', request.url));
   }
   if (profile?.role !== 'admin') {
-    return NextResponse.redirect(new URL('/dashboard/settings?error=only_admin_anaf', request.url));
+    return NextResponse.redirect(new URL('/settings?error=only_admin_anaf', request.url));
   }
 
   // === REAL ANAF FLOW (simulated here) ===
@@ -68,8 +68,8 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error('ANAF connection save error:', error);
-    return NextResponse.redirect(new URL('/dashboard/settings?error=anaf_save_failed', request.url));
+    return NextResponse.redirect(new URL('/settings?error=anaf_save_failed', request.url));
   }
 
-  return NextResponse.redirect(new URL('/dashboard/settings?success=anaf_connected', request.url));
+  return NextResponse.redirect(new URL('/settings?success=anaf_connected', request.url));
 }

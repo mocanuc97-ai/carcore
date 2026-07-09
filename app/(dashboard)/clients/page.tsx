@@ -17,7 +17,7 @@ async function addClient(formData: FormData) {
       email: formData.get('email') || null,
     });
 
-    revalidatePath('/dashboard/clients');
+    revalidatePath('/clients');
   } catch (err: any) {
     console.error('[addClient error]', err);
     // Do not throw raw (can cause x-action-redirect header issues with special chars); revalidate will show state

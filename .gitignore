@@ -44,5 +44,6 @@ next-env.d.ts
 playwright-report/
 test-results/
 *.png
+!public/*.png
 *.webm
 e2e/.auth/

@@ -48,7 +48,7 @@ export default async function VehicleHistory({ params }: { params: Promise<{ id:
 
   return (
     <div>
-      <Link href="/dashboard/vehicles" className="text-sm text-blue-600">← Înapoi la mașini</Link>
+      <Link href="/vehicles" className="text-sm text-blue-600">← Înapoi la mașini</Link>
 
       <h1 className="text-2xl font-semibold mt-4">
         {vehicle.make} {vehicle.model} {vehicle.year ? `(${vehicle.year})` : ''}

@@ -1,9 +1,17 @@
-import { FullConfig, chromium } from '@playwright/test';
-import { mkdir } from 'fs/promises';
+import { FullConfig, chromium, Page } from '@playwright/test';
+import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 
-async function waitForServer(page: any, url: string, timeoutMs = 45000) {
+// Next.js auto-loads .env.local, but this script runs standalone under
+// Playwright's globalSetup, so load it explicitly (Node 20.6+ built-in).
+try {
+  process.loadEnvFile(path.join(__dirname, '..', '.env.local'));
+} catch {
+  // .env.local may not exist (e.g. CI with env vars injected directly)
+}
+
+async function waitForServer(page: Page, url: string, timeoutMs = 45000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
@@ -134,7 +142,7 @@ async function globalSetup(config: FullConfig) {
       }
 
       // Force to dashboard and wait for real layout content (CarCore in sidebar proves layout + profile loaded)
-      await page.goto('http://127.0.0.1:3100/dashboard', { waitUntil: 'domcontentloaded' });
+      await page.goto('http://127.0.0.1:3100/', { waitUntil: 'domcontentloaded' });
       await page.waitForLoadState('networkidle');
       // Give middleware + layout + profile query a moment
       await page.waitForTimeout(800);
@@ -144,7 +152,7 @@ async function globalSetup(config: FullConfig) {
 
       // Also save credentials so tests can re-login reliably if storageState has expiry/restore issues
       const credsPath = path.join(authDir, 'creds.json');
-      await require('fs/promises').writeFile(credsPath, JSON.stringify({ email: uniqueEmail, password }, null, 2));
+      await writeFile(credsPath, JSON.stringify({ email: uniqueEmail, password }, null, 2));
 
       console.log(`[global-setup] Auth state + creds saved for ${uniqueEmail}`);
     } finally {

@@ -1,11 +1,9 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { Resend } from 'resend';
+import { getResendClient } from '@/lib/resend/client';
 import { sendSMS } from '@/lib/sms/smsro';
 import { revalidatePath } from 'next/cache';
-
-const resend = new Resend(process.env.RESEND_API_KEY || '');
 
 export async function sendAppointmentReminder(appointmentId: string) {
   const supabase = await createClient();
@@ -31,15 +29,20 @@ export async function sendAppointmentReminder(appointmentId: string) {
 
     // Email
     if (appt.clients?.email) {
-      try {
-        await resend.emails.send({
-          from: 'programari@carcore.ro',
-          to: appt.clients.email,
-          subject: `Reminder programare - ${tenantName}`,
-          text: `Bună ${appt.clients.name},\n\nTe reamintim de programarea ta pentru ${appt.vehicles?.make} ${appt.vehicles?.model} pe data de ${new Date(appt.scheduled_at).toLocaleDateString('ro-RO')}.\n\nVă așteptăm!\n${tenantName}`,
-        });
-      } catch (e) {
-        console.error('Email reminder failed');
+      const resend = getResendClient();
+      if (!resend) {
+        console.log('[Email STUB] RESEND_API_KEY not set, skipping appointment reminder email');
+      } else {
+        try {
+          await resend.emails.send({
+            from: 'programari@carcore.ro',
+            to: appt.clients.email,
+            subject: `Reminder programare - ${tenantName}`,
+            text: `Bună ${appt.clients.name},\n\nTe reamintim de programarea ta pentru ${appt.vehicles?.make} ${appt.vehicles?.model} pe data de ${new Date(appt.scheduled_at).toLocaleDateString('ro-RO')}.\n\nVă așteptăm!\n${tenantName}`,
+          });
+        } catch (e) {
+          console.error('Email reminder failed');
+        }
       }
     }
 
@@ -49,7 +52,7 @@ export async function sendAppointmentReminder(appointmentId: string) {
       await sendSMS(appt.clients.phone, msg);
     }
 
-    revalidatePath('/dashboard/appointments');
+    revalidatePath('/appointments');
   } catch (e) {
     console.error('[sendAppointmentReminder error]', e);
   }
@@ -65,7 +68,7 @@ export async function updateAppointmentStatus(appointmentId: string, newStatus: 
     .eq('tenant_id', profile?.tenant_id);
 
   if (error) throw new Error(error.message);
-  revalidatePath('/dashboard/appointments');
+  revalidatePath('/appointments');
 }
 
 
@@ -93,7 +96,7 @@ export async function createAppointment(formData: FormData) {
     });
 
     if (error) throw new Error(error.message);
-    revalidatePath('/dashboard/appointments');
+    revalidatePath('/appointments');
     // redirect can be added if using next/navigation
   } catch (err: any) {
     console.error('[createAppointment error]', err);

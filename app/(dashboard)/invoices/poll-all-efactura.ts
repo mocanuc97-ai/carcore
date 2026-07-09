@@ -68,7 +68,7 @@ export async function pollAllPendingEfactura() {
       updated++;
     }
 
-    revalidatePath('/dashboard/invoices');
+    revalidatePath('/invoices');
 
     return { updated, total: pending?.length || 0 };
   } catch (err: any) {

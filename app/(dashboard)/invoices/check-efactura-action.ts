@@ -44,7 +44,7 @@ export async function checkEfacturaStatusAction(invoiceId: string) {
     .update({ efactura_status: result.status })
     .eq('id', invoiceId);
 
-  revalidatePath('/dashboard/invoices');
+  revalidatePath('/invoices');
   } catch (err: any) {
     console.error('[checkEfacturaStatusAction error]', err);
     throw new Error(err.message || 'Eroare la verificarea statusului ANAF');

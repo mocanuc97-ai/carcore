@@ -3,7 +3,7 @@
 import { toast } from 'sonner';
 
 interface ExportButtonProps {
-  data: any[];
+  data: Record<string, unknown>[];
   filename: string;
   label?: string;
 }
@@ -26,7 +26,7 @@ export default function ExportButton({ data, filename, label = 'Export CSV' }: E
     const headers = Object.keys(data[0] || {});
 
     // Proper CSV escaping: double internal quotes, wrap fields containing , " or \n
-    const escapeCSV = (val: any): string => {
+    const escapeCSV = (val: unknown): string => {
       if (val == null) return '""';
       let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
       const needsQuote = /["\n,]/.test(str);
