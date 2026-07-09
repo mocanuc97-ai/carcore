@@ -72,7 +72,7 @@ export async function sendToEfactura(invoiceId: string) {
       .update(updateData)
       .eq('id', invoiceId);
 
-    revalidatePath('/dashboard/invoices');
+    revalidatePath('/invoices');
   } catch (err: any) {
     console.error('[sendToEfactura error]', err);
     throw new Error(err.message || 'Eroare la trimiterea către ANAF');

@@ -21,7 +21,7 @@ async function addVehicle(formData: FormData) {
       mileage: formData.get('mileage') ? parseInt(formData.get('mileage') as string) : null,
     });
 
-    revalidatePath('/dashboard/vehicles');
+    revalidatePath('/vehicles');
   } catch (err: any) {
     console.error('[addVehicle error]', err);
     // Avoid throwing to prevent header errors in server actions during E2E
@@ -83,7 +83,7 @@ export default async function VehiclesPage() {
                 <td className="p-4 font-mono text-xs">{v.vin || '-'}</td>
                 <td className="p-4">{v.license_plate || '-'}</td>
                 <td className="p-4">
-                  <a href={`/dashboard/vehicles/${v.id}`} className="text-blue-600 text-sm hover:underline">Istoric complet</a>
+                  <a href={`/vehicles/${v.id}`} className="text-blue-600 text-sm hover:underline">Istoric complet</a>
                 </td>
               </tr>
             )) : (

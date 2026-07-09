@@ -291,8 +291,8 @@ export async function createAndSendInvoice(formData: FormData) {
     }
   }
 
-  revalidatePath('/dashboard/invoices');
-  redirect('/dashboard/invoices');
+  revalidatePath('/invoices');
+  redirect('/invoices');
   } catch (err: any) {
     console.error('[createAndSendInvoice error]', err);
     throw new Error(err.message || 'Eroare la crearea facturii');

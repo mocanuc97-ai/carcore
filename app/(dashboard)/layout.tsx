@@ -55,16 +55,16 @@ export default async function DashboardLayout({
         </div>
 
         <nav className="flex-1 p-4 space-y-1 text-sm">
-          <Link href="/dashboard" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-dashboard">Dashboard</Link>
-          <Link href="/dashboard/clients" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-clients">Clienți</Link>
-          <Link href="/dashboard/vehicles" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-vehicles">Mașini</Link>
-          <Link href="/dashboard/interventions" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-interventions">Intervenții</Link>
-          <Link href="/dashboard/services" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-services">Servicii &amp; Prețuri</Link>
-          <Link href="/dashboard/parts-inventory" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-parts">Stoc Piese</Link>
-          <Link href="/dashboard/reports" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-reports">Rapoarte Marjă</Link>
-          <Link href="/dashboard/appointments" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-appointments">Programări</Link>
-          <Link href="/dashboard/invoices" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-invoices">Facturi</Link>
-          <Link href="/dashboard/settings" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-settings">Setări</Link>
+          <Link href="/" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-dashboard">Dashboard</Link>
+          <Link href="/clients" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-clients">Clienți</Link>
+          <Link href="/vehicles" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-vehicles">Mașini</Link>
+          <Link href="/interventions" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-interventions">Intervenții</Link>
+          <Link href="/services" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-services">Servicii &amp; Prețuri</Link>
+          <Link href="/parts-inventory" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-parts">Stoc Piese</Link>
+          <Link href="/reports" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-reports">Rapoarte Marjă</Link>
+          <Link href="/appointments" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-appointments">Programări</Link>
+          <Link href="/invoices" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-invoices">Facturi</Link>
+          <Link href="/settings" className="block px-3 py-2 rounded-lg hover:bg-zinc-800" data-testid="nav-settings">Setări</Link>
         </nav>
 
         <div className="p-4 border-t border-zinc-800 text-xs">

@@ -32,8 +32,9 @@ export async function sendSMS(phone: string, message: string) {
     if (!res.ok) throw new Error('SMS API error');
 
     return { success: true };
-  } catch (e: any) {
+  } catch (e) {
     console.error('SMS error:', e);
-    return { success: false, error: e.message };
+    const message = e instanceof Error ? e.message : 'Unknown SMS error';
+    return { success: false, error: message };
   }
 }

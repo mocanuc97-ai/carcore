@@ -54,5 +54,5 @@ export async function requireProfile() {
   if (!profile) {
     throw new Error('Nu ești autentificat sau profilul lipsește');
   }
-  return profile as { id: string; tenant_id: string; role: 'admin' | 'reception'; full_name: string; tenants: any };
+  return profile as { id: string; tenant_id: string; role: 'admin' | 'reception'; full_name: string; tenants: unknown };
 }

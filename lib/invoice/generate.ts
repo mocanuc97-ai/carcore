@@ -40,7 +40,7 @@ export async function generateInvoicePDF(input: GenerateInvoicePDFInput): Promis
       client: input.client,
       tenant: input.tenant,
       items: input.items,
-    }) as any;
+    }) as unknown as Parameters<typeof renderToBuffer>[0];
     const buffer: Buffer = await renderToBuffer(docElement);
     return buffer;
   } catch (err) {

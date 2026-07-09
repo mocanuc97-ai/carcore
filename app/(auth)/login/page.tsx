@@ -29,7 +29,7 @@ export default function LoginPage() {
     }
 
     toast.success('Autentificat cu succes!');
-    router.push('/dashboard');
+    router.push('/');
     router.refresh();
   };
 

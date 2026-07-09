@@ -21,7 +21,7 @@ export async function sendUnpaidInvoiceReminders() {
 
   const { data: unpaid } = await supabase
     .from('invoices')
-    .select('id, number, total, issued_at, clients(name, email)')
+    .select('id, number, total, issued_at, clients(name, email, phone)')
     .eq('tenant_id', tenantId)
     .eq('status', 'sent')
     .lt('issued_at', sevenDaysAgo)

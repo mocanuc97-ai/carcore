@@ -1,4 +1,4 @@
-import { pollAllPendingEfacturaForAllTenants } from '@/lib/cron/poll-efactura';
+import { sendUnpaidInvoiceRemindersForAllTenants } from '@/lib/cron/send-reminders';
 import { isAuthorizedCronRequest } from '@/lib/cron/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await pollAllPendingEfacturaForAllTenants();
+    const result = await sendUnpaidInvoiceRemindersForAllTenants();
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';

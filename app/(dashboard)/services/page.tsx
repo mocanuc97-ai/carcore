@@ -30,7 +30,7 @@ async function addService(formData: FormData) {
       duration_minutes: parsed.data.duration_minutes ?? null,
     });
 
-    revalidatePath('/dashboard/services');
+    revalidatePath('/services');
   } catch (err: any) {
     console.error('[addService error]', err);
     throw new Error(err.message || 'Eroare la adăugare serviciu');

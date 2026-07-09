@@ -58,7 +58,7 @@ async function recordPurchase(formData: FormData) {
       notes: 'Achiziție stoc',
     });
 
-    revalidatePath('/dashboard/parts-inventory');
+    revalidatePath('/parts-inventory');
   } catch (err: any) {
     console.error('[recordPurchase error]', err);
     // Avoid throw for header stability in E2E

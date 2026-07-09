@@ -39,7 +39,7 @@ export default async function InvoicesPage() {
             </form>
           )}
           <Link
-            href="/dashboard/invoices/new"
+            href="/invoices/new"
             className="bg-black text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-zinc-900"
           >
             + Factură nouă
@@ -50,7 +50,7 @@ export default async function InvoicesPage() {
       {isAdmin && !isConnected && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-sm">
           Nu ești conectat la ANAF e-Factura.{' '}
-          <Link href="/dashboard/settings" className="underline text-yellow-700 font-medium">Conectează-te din Setări</Link> pentru a trimite facturi direct la ANAF.
+          <Link href="/settings" className="underline text-yellow-700 font-medium">Conectează-te din Setări</Link> pentru a trimite facturi direct la ANAF.
         </div>
       )}
       {!isAdmin && (

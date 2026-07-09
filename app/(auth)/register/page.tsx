@@ -13,7 +13,7 @@ export default async function RegisterPage() {
     }
 
     if (result.success) {
-      redirect('/login?success=Cont creat cu succes. Autentifică-te acum.');
+      redirect(`/login?success=${encodeURIComponent('Cont creat cu succes. Autentifică-te acum.')}`);
     }
   }
 

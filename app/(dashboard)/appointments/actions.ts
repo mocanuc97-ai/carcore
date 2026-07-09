@@ -49,7 +49,7 @@ export async function sendAppointmentReminder(appointmentId: string) {
       await sendSMS(appt.clients.phone, msg);
     }
 
-    revalidatePath('/dashboard/appointments');
+    revalidatePath('/appointments');
   } catch (e) {
     console.error('[sendAppointmentReminder error]', e);
   }
@@ -65,7 +65,7 @@ export async function updateAppointmentStatus(appointmentId: string, newStatus: 
     .eq('tenant_id', profile?.tenant_id);
 
   if (error) throw new Error(error.message);
-  revalidatePath('/dashboard/appointments');
+  revalidatePath('/appointments');
 }
 
 
@@ -93,7 +93,7 @@ export async function createAppointment(formData: FormData) {
     });
 
     if (error) throw new Error(error.message);
-    revalidatePath('/dashboard/appointments');
+    revalidatePath('/appointments');
     // redirect can be added if using next/navigation
   } catch (err: any) {
     console.error('[createAppointment error]', err);
