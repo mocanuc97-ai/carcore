@@ -103,11 +103,14 @@ export default function NewInvoicePage() {
   // Extend state type
   // manualParts now support cost
 
-  // Stock lookup for manual parts (match by name only, since manual entry in invoice lacks distributor)
+  // Stock lookup for manual parts (match by name only, since manual entry in invoice
+  // lacks distributor). The same name can have multiple part_inventory rows — one per
+  // distributor — so sum across all of them rather than matching a single row.
   function getStockForPartName(name: string): number {
     if (!name) return Infinity;
-    const match = inventory.find((i: any) => i.name?.toLowerCase() === name.toLowerCase());
-    return match ? Number(match.current_stock) || 0 : Infinity;
+    const matches = inventory.filter((i: any) => i.name?.toLowerCase() === name.toLowerCase());
+    if (matches.length === 0) return Infinity;
+    return matches.reduce((sum: number, i: any) => sum + (Number(i.current_stock) || 0), 0);
   }
 
   function hasInsufficientManualStock(): boolean {

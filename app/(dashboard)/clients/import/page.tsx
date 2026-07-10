@@ -55,7 +55,10 @@ export default function ImportClientsPage() {
           Fiecare rând reprezintă o mașină; dacă un client are mai multe mașini, repetă datele clientului pe mai multe rânduri
           (vezi exemplul din șablon). Coloanele <code className="bg-zinc-100 px-1 rounded">nume_client</code>,{' '}
           <code className="bg-zinc-100 px-1 rounded">telefon_client</code>, <code className="bg-zinc-100 px-1 rounded">marca</code> și{' '}
-          <code className="bg-zinc-100 px-1 rounded">model</code> sunt obligatorii; restul sunt opționale.
+          <code className="bg-zinc-100 px-1 rounded">model</code> sunt obligatorii; restul sunt opționale. Coloana{' '}
+          <code className="bg-zinc-100 px-1 rounded">tip_client</code> acceptă <code className="bg-zinc-100 px-1 rounded">persoana_fizica</code>{' '}
+          sau <code className="bg-zinc-100 px-1 rounded">persoana_juridica</code> (implicit persoană fizică dacă lipsește); pentru firme
+          completează și <code className="bg-zinc-100 px-1 rounded">cui</code>.
         </p>
         <a
           href="/templates/import-clienti-masini.csv"

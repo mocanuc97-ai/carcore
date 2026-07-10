@@ -10,6 +10,18 @@ export async function addVehicleToClient(clientId: string, formData: FormData) {
   const profile = await getCurrentProfile();
   if (!profile) return { error: 'Nu ești autentificat' };
 
+  // Defense in depth: verify the client actually belongs to this tenant
+  // before attaching a vehicle to it (RLS also enforces this on the vehicles
+  // table itself, but that surfaces as an opaque RLS error — this gives a
+  // clean message instead of leaking a raw Postgres error to the toast).
+  const { data: ownedClient } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('id', clientId)
+    .eq('tenant_id', profile.tenant_id)
+    .maybeSingle();
+  if (!ownedClient) return { error: 'Client negăsit' };
+
   const parsed = vehicleSchema.safeParse({
     make: formData.get('make'),
     model: formData.get('model'),

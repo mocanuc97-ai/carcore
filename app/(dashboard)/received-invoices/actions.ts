@@ -5,7 +5,7 @@ import { getCurrentProfile } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { simulateIncomingEfacturaMessage } from '@/lib/efactura/receive-stub';
 import { isValidAnafConnection } from '@/lib/efactura/stub';
-import { nonNegativeNumber } from '@/lib/validation';
+import { markupPercentSchema } from '@/lib/validation';
 
 export async function pollReceivedEfactura() {
   const supabase = await createClient();
@@ -62,8 +62,24 @@ export async function pollReceivedEfactura() {
       })
       .select('id')
       .single();
-    if (supErr || !newSupplier) throw new Error('Eroare la înregistrarea furnizorului: ' + (supErr?.message || ''));
-    supplierId = newSupplier.id;
+    if (supErr) {
+      if (supErr.code === '23505') {
+        // Lost a race to a concurrent poll that just registered this same
+        // CUI — use the row it created instead of dropping this invoice.
+        const { data: raceSupplier } = await supabase
+          .from('suppliers')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('cui', incoming.supplier.cui)
+          .single();
+        if (!raceSupplier) throw new Error('Eroare la înregistrarea furnizorului. Încearcă din nou.');
+        supplierId = raceSupplier.id;
+      } else {
+        throw new Error('Eroare la înregistrarea furnizorului. Încearcă din nou.');
+      }
+    } else if (newSupplier) {
+      supplierId = newSupplier.id;
+    }
   }
 
   const { data: invoice, error: invErr } = await supabase
@@ -80,7 +96,11 @@ export async function pollReceivedEfactura() {
     .select('id')
     .single();
 
-  if (invErr || !invoice) throw new Error('Eroare la înregistrarea facturii primite: ' + (invErr?.message || ''));
+  if (invErr) {
+    if (invErr.code === '23505') throw new Error('Factura simulată are un identificator deja folosit — încearcă din nou.');
+    throw new Error('Eroare la înregistrarea facturii primite. Încearcă din nou.');
+  }
+  if (!invoice) throw new Error('Eroare la înregistrarea facturii primite. Încearcă din nou.');
 
   const items = incoming.items.map((i) => ({
     received_invoice_id: invoice.id,
@@ -102,32 +122,50 @@ export async function processReceivedInvoice(invoiceId: string, markupPercentRaw
   if (!profile) return { error: 'Nu ești autentificat' };
   if (profile.role !== 'admin') return { error: 'Doar administratorii pot înregistra piese în stoc' };
 
-  const parsedMarkup = nonNegativeNumber.safeParse(markupPercentRaw);
-  if (!parsedMarkup.success) return { error: 'Adaos (%) invalid' };
+  const parsedMarkup = markupPercentSchema.safeParse(markupPercentRaw);
+  if (!parsedMarkup.success) return { error: parsedMarkup.error.issues.map((i) => i.message).join('; ') };
   const markup = parsedMarkup.data;
 
   const tenantId = profile.tenant_id;
 
-  const { data: invoice } = await supabase
+  // Atomic claim: flips status new/error -> processed in one conditional
+  // update. Only the caller whose update actually matches a row (claimed
+  // !== null) proceeds to mutate stock — a concurrent double-click or a
+  // second admin tab racing on the same invoice gets a clean "already
+  // processed" response instead of both racing through the stock writes
+  // below and double-incrementing (found via QA testing).
+  const { data: claimed, error: claimErr } = await supabase
     .from('received_invoices')
-    .select('*, suppliers(name)')
+    .update({ status: 'processed', markup_percent_applied: markup, processed_at: new Date().toISOString() })
     .eq('id', invoiceId)
     .eq('tenant_id', tenantId)
-    .single();
+    .in('status', ['new', 'error'])
+    .select('id, number, external_id, supplier_id')
+    .maybeSingle();
 
-  if (!invoice) return { error: 'Factura nu a fost găsită' };
-  if (invoice.status === 'processed') return { error: 'Factura a fost deja înregistrată în stoc' };
+  if (claimErr) return { error: 'Eroare la înregistrare: ' + claimErr.message };
+  if (!claimed) return { error: 'Factura a fost deja înregistrată în stoc (sau se procesează chiar acum)' };
+
+  const { data: supplier } = await supabase.from('suppliers').select('name').eq('id', claimed.supplier_id).maybeSingle();
+  const distributorName = supplier?.name || 'Furnizor necunoscut';
 
   const { data: items } = await supabase
     .from('received_invoice_items')
     .select('*')
     .eq('received_invoice_id', invoiceId);
 
-  if (!items || items.length === 0) return { error: 'Factura nu are piese' };
-
-  const distributorName = (invoice as any).suppliers?.name || 'Furnizor necunoscut';
+  if (!items || items.length === 0) {
+    revalidatePath('/received-invoices');
+    return { success: true };
+  }
 
   for (const item of items) {
+    // Idempotent retry: if a previous attempt failed partway through (see the
+    // 'error' status handling below) and this is a re-run, skip items already
+    // successfully registered — otherwise a retry would double-count stock for
+    // whatever succeeded before the failure.
+    if (item.part_inventory_id) continue;
+
     const purchasePrice = Number(item.unit_price) || 0;
     const qty = Number(item.quantity) || 0;
     const sellingPrice = Math.round(purchasePrice * (1 + markup / 100) * 100) / 100;
@@ -142,7 +180,7 @@ export async function processReceivedInvoice(invoiceId: string, markupPercentRaw
 
     const newStock = (Number(existingStock?.current_stock) || 0) + qty;
 
-    const { data: upsertedInv } = await supabase
+    const { data: upsertedInv, error: invUpsertErr } = await supabase
       .from('part_inventory')
       .upsert(
         {
@@ -157,25 +195,33 @@ export async function processReceivedInvoice(invoiceId: string, markupPercentRaw
       .select('id')
       .single();
 
-    await supabase.from('parts').insert({
+    // Errors here were previously ignored, letting the invoice reach
+    // 'processed' while the actual stock/purchase write silently failed
+    // (found via QA testing with an extreme markup causing a numeric
+    // overflow on insert). Mark the invoice 'error' instead so it's visibly
+    // wrong and retriable, rather than a false "success".
+    if (invUpsertErr || !upsertedInv) {
+      await supabase.from('received_invoices').update({ status: 'error' }).eq('id', invoiceId);
+      return { error: `Eroare la actualizarea stocului pentru "${item.description}". Factura a fost marcată cu eroare — poți reîncerca.` };
+    }
+
+    const { error: partsInsertErr } = await supabase.from('parts').insert({
       tenant_id: tenantId,
       name: item.description,
       distributor: distributorName,
       quantity: qty,
       purchase_price: purchasePrice,
       selling_price: sellingPrice,
-      notes: `Achiziție automată din factură primită ${invoice.number || invoice.external_id}`,
+      notes: `Achiziție automată din factură primită ${claimed.number || claimed.external_id}`,
     });
 
-    if (upsertedInv) {
-      await supabase.from('received_invoice_items').update({ part_inventory_id: upsertedInv.id }).eq('id', item.id);
+    if (partsInsertErr) {
+      await supabase.from('received_invoices').update({ status: 'error' }).eq('id', invoiceId);
+      return { error: `Eroare la înregistrarea achiziției pentru "${item.description}". Factura a fost marcată cu eroare — poți reîncerca.` };
     }
-  }
 
-  await supabase
-    .from('received_invoices')
-    .update({ status: 'processed', markup_percent_applied: markup, processed_at: new Date().toISOString() })
-    .eq('id', invoiceId);
+    await supabase.from('received_invoice_items').update({ part_inventory_id: upsertedInv.id }).eq('id', item.id);
+  }
 
   revalidatePath('/received-invoices');
   revalidatePath('/parts-inventory');
