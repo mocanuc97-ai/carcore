@@ -24,9 +24,9 @@ export default async function InvoicesPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <h1 className="text-2xl font-semibold">Facturi</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ExportButton data={invoices || []} filename={`facturi_${new Date().toISOString().split('T')[0]}`} label="Export CSV" />
           {isAdmin && (
             <form action={async () => { 'use server'; await pollAllPendingEfactura(); }}>
@@ -57,8 +57,8 @@ export default async function InvoicesPage() {
         <div className="mb-4 p-2 text-xs text-zinc-500">Recepție: acțiunile e-Factura/ANAF sunt ascunse (doar admin).</div>
       )}
 
-      <div className="bg-white rounded-2xl overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-2xl overflow-hidden overflow-x-auto">
+        <table className="w-full text-sm min-w-[800px]">
           <thead>
             <tr className="border-b bg-zinc-50">
               <th className="p-4 text-left">Număr</th>

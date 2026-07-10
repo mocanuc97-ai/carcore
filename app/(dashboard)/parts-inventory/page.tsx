@@ -106,7 +106,8 @@ export default async function PartsInventoryPage() {
         <div className="bg-white rounded-2xl p-6">
           <h2 className="font-medium mb-4">Stoc curent</h2>
           {inventory && inventory.length > 0 ? (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[500px]">
               <thead>
                 <tr className="text-left border-b">
                   <th>Piesă</th>
@@ -126,6 +127,7 @@ export default async function PartsInventoryPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : (
             <p className="text-sm text-zinc-500">Niciun stoc înregistrat încă.</p>
           )}
