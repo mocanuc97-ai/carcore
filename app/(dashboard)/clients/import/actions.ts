@@ -74,7 +74,10 @@ export async function importClientsAndVehicles(formData: FormData): Promise<Impo
   const existingPlates = new Set((existingVehicles || []).map((v) => v.license_plate).filter(Boolean));
 
   const rowErrors: string[] = [];
-  const newClientsByPhone = new Map<string, { name: string; phone: string; email: string | null; address: string | null }>();
+  const newClientsByPhone = new Map<
+    string,
+    { name: string; phone: string; email: string | null; address: string | null; client_type: 'persoana_fizica' | 'persoana_juridica'; cui: string | null }
+  >();
   interface PendingVehicle {
     clientPhone: string;
     make: string;
@@ -117,11 +120,16 @@ export async function importClientsAndVehicles(formData: FormData): Promise<Impo
     }
 
     if (!clientIdByPhone.has(phone) && !newClientsByPhone.has(phone)) {
+      const tipRaw = (r['tip_client'] || '').trim().toLowerCase();
+      const client_type: 'persoana_fizica' | 'persoana_juridica' =
+        tipRaw === 'persoana_juridica' || tipRaw === 'firma' || tipRaw === 'juridica' ? 'persoana_juridica' : 'persoana_fizica';
       newClientsByPhone.set(phone, {
         name,
         phone,
         email: r['email_client'] || null,
         address: r['adresa_client'] || null,
+        client_type,
+        cui: client_type === 'persoana_juridica' ? (r['cui'] || null) : null,
       });
     }
 
@@ -155,6 +163,8 @@ export async function importClientsAndVehicles(formData: FormData): Promise<Impo
           phone: c.phone,
           email: c.email,
           address: c.address,
+          client_type: c.client_type,
+          cui: c.cui,
         }))
       )
       .select('id, phone');

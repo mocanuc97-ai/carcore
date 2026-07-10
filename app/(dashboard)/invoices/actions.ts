@@ -193,31 +193,45 @@ export async function createAndSendInvoice(formData: FormData) {
   // - Intervention-sourced and historical client parts: stock already deducted in add-part-action.ts when added to intervention
   //   (this structural separation + pre-check prevents double deduction)
   // - Pre-verify current_stock >= qty ; use conditional .eq(current_stock) update for optimistic concurrency (simulates tx safety)
+  // - A part name can have multiple rows (one per distributor, e.g. one manually
+  //   purchased + one registered from a received supplier invoice) — manual entry
+  //   has no distributor field, so we must sum across all rows for that name and
+  //   deduct greedily row-by-row, not assume a single row (found via QA testing:
+  //   .single() on 2+ rows errored, silently skipping deduction entirely).
   for (const p of manualPartLines) {
     const partName = p.description.replace('[Piesă] ', '');
     const qty = Number(p.quantity) || 0;
-    const { data: inv } = await supabase
+    const { data: invRows } = await supabase
       .from('part_inventory')
-      .select('current_stock')
+      .select('id, current_stock')
       .eq('tenant_id', tenantId)
-      .eq('name', partName)
-      .single();
+      .eq('name', partName);
 
-    if (inv) {
-      const current = Number(inv.current_stock) || 0;
-      if (current < qty) {
-        throw new Error(`Stoc insuficient pentru "${partName}" (disponibil: ${current}, cerut: ${qty}). Deductie anulata.`);
+    if (invRows && invRows.length > 0) {
+      const totalAvailable = invRows.reduce((sum, r) => sum + (Number(r.current_stock) || 0), 0);
+      if (totalAvailable < qty) {
+        throw new Error(`Stoc insuficient pentru "${partName}" (disponibil: ${totalAvailable}, cerut: ${qty}). Deductie anulata.`);
       }
-      const newStock = current - qty;
-      const { data: updatedRows, error: updateErr } = await supabase
-        .from('part_inventory')
-        .update({ current_stock: newStock })
-        .eq('tenant_id', tenantId)
-        .eq('name', partName)
-        .eq('current_stock', current)
-        .select('current_stock');
-      if (updateErr || !updatedRows || updatedRows.length === 0) {
-        throw new Error(`Eroare la deducerea stocului pentru "${partName}" (stoc modificat concurent sau conditie esuata).`);
+
+      let remaining = qty;
+      for (const row of invRows) {
+        if (remaining <= 0) break;
+        const current = Number(row.current_stock) || 0;
+        if (current <= 0) continue;
+        const deduct = Math.min(current, remaining);
+        const { data: updatedRows, error: updateErr } = await supabase
+          .from('part_inventory')
+          .update({ current_stock: current - deduct })
+          .eq('id', row.id)
+          .eq('current_stock', current)
+          .select('current_stock');
+        if (updateErr || !updatedRows || updatedRows.length === 0) {
+          throw new Error(`Eroare la deducerea stocului pentru "${partName}" (stoc modificat concurent sau conditie esuata).`);
+        }
+        remaining -= deduct;
+      }
+      if (remaining > 0) {
+        throw new Error(`Stoc insuficient pentru "${partName}" (stoc modificat concurent în timpul facturării).`);
       }
     }
   }

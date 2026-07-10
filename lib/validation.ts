@@ -12,6 +12,16 @@ export const nonNegativeNumber = z.coerce
   .nonnegative('Trebuie să fie >= 0')
   .finite('Valoare invalidă');
 
+// Markup (%) applied to received supplier invoice parts — bounded to prevent
+// a stray extreme value from overflowing numeric(10,2) on the resulting
+// selling_price (found via QA testing: an unbounded value like 1e15 passed
+// validation but crashed the insert with a silently-swallowed Postgres error).
+export const markupPercentSchema = z.coerce
+  .number()
+  .nonnegative('Adaosul nu poate fi negativ')
+  .max(1000, 'Adaos prea mare (maxim 1000%)')
+  .finite('Valoare invalidă');
+
 // Service creation/update
 export const serviceSchema = z.object({
   name: z.string().trim().min(1, 'Numele serviciului este obligatoriu'),

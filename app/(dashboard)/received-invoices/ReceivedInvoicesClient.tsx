@@ -84,6 +84,7 @@ export default function ReceivedInvoicesClient({ invoices, defaultMarkupPercent,
         {invoices.map((inv: any) => {
           const items = inv.received_invoice_items || [];
           const processed = inv.status === 'processed';
+          const isError = inv.status === 'error';
           return (
             <div key={inv.id} className="bg-white rounded-2xl p-6" data-testid={`received-invoice-${inv.id}`}>
               <div className="flex flex-wrap justify-between items-start gap-3 mb-3">
@@ -95,10 +96,15 @@ export default function ReceivedInvoicesClient({ invoices, defaultMarkupPercent,
                     CUI: {inv.suppliers?.cui || '-'} · {inv.issued_at ? new Date(inv.issued_at).toLocaleDateString('ro-RO') : '-'} · Total: {Number(inv.total).toFixed(2)} RON
                   </p>
                 </div>
-                <span className={`px-2.5 py-0.5 text-xs rounded-full ${processed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                  {processed ? 'Înregistrată în stoc' : 'Nouă'}
+                <span className={`px-2.5 py-0.5 text-xs rounded-full ${processed ? 'bg-green-100 text-green-700' : isError ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                  {processed ? 'Înregistrată în stoc' : isError ? 'Eroare — reîncearcă' : 'Nouă'}
                 </span>
               </div>
+              {isError && (
+                <p className="text-xs text-red-600 mb-3">
+                  Înregistrarea a eșuat parțial. Piesele deja înregistrate cu succes nu vor fi duplicate la reîncercare.
+                </p>
+              )}
 
               <div className="border rounded-xl overflow-x-auto">
                 <table className="w-full text-sm min-w-[400px]">
@@ -143,7 +149,7 @@ export default function ReceivedInvoicesClient({ invoices, defaultMarkupPercent,
                     className="bg-black text-white px-4 py-1.5 rounded-xl text-sm font-medium hover:bg-zinc-900 disabled:opacity-50"
                     data-testid={`process-received-invoice-${inv.id}`}
                   >
-                    {processingId === inv.id ? 'Se înregistrează...' : 'Înregistrează în stoc'}
+                    {processingId === inv.id ? 'Se înregistrează...' : isError ? 'Reîncearcă înregistrarea' : 'Înregistrează în stoc'}
                   </button>
                 </div>
               )}

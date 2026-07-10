@@ -1,53 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
-import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
 import ExportButton from '@/components/ExportButton';
 import IncompleteBadge from '@/components/IncompleteBadge';
-import SubmitButton from '@/components/SubmitButton';
+import AddClientForm from '@/components/AddClientForm';
 import { getClientMissingFields } from '@/lib/profile-completeness';
 import { getCurrentProfile } from '@/lib/supabase/server';
-import { clientSchema } from '@/lib/validation';
-import ClientTypeFields from '@/components/ClientTypeFields';
-
-async function addClient(formData: FormData) {
-  'use server';
-  const supabase = await createClient();
-  const profile = await getCurrentProfile();
-  if (!profile) throw new Error('Profil negăsit');
-
-  try {
-    const parsed = clientSchema.safeParse({
-      name: formData.get('name'),
-      phone: formData.get('phone'),
-      email: formData.get('email'),
-      address: formData.get('address'),
-      client_type: formData.get('client_type'),
-      cui: formData.get('cui'),
-      reg_com: formData.get('reg_com'),
-    });
-    if (!parsed.success) {
-      console.error('[addClient validation]', parsed.error.issues);
-      return;
-    }
-
-    await supabase.from('clients').insert({
-      tenant_id: profile.tenant_id,
-      name: parsed.data.name,
-      phone: parsed.data.phone,
-      email: parsed.data.email,
-      address: parsed.data.address,
-      client_type: parsed.data.client_type,
-      cui: parsed.data.client_type === 'persoana_juridica' ? parsed.data.cui : null,
-      reg_com: parsed.data.client_type === 'persoana_juridica' ? parsed.data.reg_com : null,
-    });
-
-    revalidatePath('/clients');
-  } catch (err: any) {
-    console.error('[addClient error]', err);
-    // Do not throw raw (can cause x-action-redirect header issues with special chars); revalidate will show state
-    // For E2E we rely on visibility after click
-  }
-}
 
 export default async function ClientsPage() {
   const supabase = await createClient();
@@ -73,14 +30,7 @@ export default async function ClientsPage() {
 
       <div className="bg-white rounded-2xl p-6 mb-8">
         <h3 className="font-medium mb-4">Adaugă client nou</h3>
-        <form action={addClient} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <input name="name" placeholder="Nume complet" required maxLength={100} className="border rounded-xl px-4 py-2" data-testid="client-name" />
-          <input name="phone" placeholder="Telefon" required maxLength={30} className="border rounded-xl px-4 py-2" data-testid="client-phone" />
-          <input name="email" placeholder="Email (opțional)" className="border rounded-xl px-4 py-2" data-testid="client-email" />
-          <input name="address" placeholder="Adresă (opțional)" className="border rounded-xl px-4 py-2" data-testid="client-address" />
-          <ClientTypeFields />
-          <SubmitButton pendingText="Se adaugă..." className="bg-black text-white rounded-xl disabled:opacity-50" data-testid="add-client">Adaugă</SubmitButton>
-        </form>
+        <AddClientForm />
       </div>
 
       <div className="flex justify-end mb-2">
