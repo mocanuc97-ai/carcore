@@ -22,6 +22,17 @@ export const serviceSchema = z.object({
   ),
 });
 
+// Client creation/update — client_type drives whether CUI is expected (persoana_juridica).
+export const clientSchema = z.object({
+  name: z.string().trim().min(1, 'Numele este obligatoriu'),
+  phone: z.string().trim().min(1, 'Telefonul este obligatoriu'),
+  email: z.preprocess((v) => (v === '' || v == null ? null : v), z.string().email('Email invalid').nullable().optional()),
+  address: z.preprocess((v) => (v === '' || v == null ? null : v), z.string().nullable().optional()),
+  client_type: z.enum(['persoana_fizica', 'persoana_juridica']).default('persoana_fizica'),
+  cui: z.preprocess((v) => (v === '' || v == null ? null : v), z.string().trim().nullable().optional()),
+  reg_com: z.preprocess((v) => (v === '' || v == null ? null : v), z.string().trim().nullable().optional()),
+});
+
 // Vehicle creation/update — year and mileage are optional but, when present,
 // must be within a sane range (found via QA testing: -5 and 9999 were
 // previously accepted with no validation at all).

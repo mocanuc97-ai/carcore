@@ -3,26 +3,73 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { clientSchema, vehicleSchema } from '@/lib/validation';
+
+export async function addVehicleToClient(clientId: string, formData: FormData) {
+  const supabase = await createClient();
+  const profile = await getCurrentProfile();
+  if (!profile) return { error: 'Nu ești autentificat' };
+
+  const parsed = vehicleSchema.safeParse({
+    make: formData.get('make'),
+    model: formData.get('model'),
+    year: formData.get('year'),
+    mileage: formData.get('mileage'),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues.map(i => i.message).join('; ') };
+  }
+
+  const { error } = await supabase.from('vehicles').insert({
+    tenant_id: profile.tenant_id,
+    client_id: clientId,
+    make: parsed.data.make,
+    model: parsed.data.model,
+    year: parsed.data.year ?? null,
+    vin: formData.get('vin') || null,
+    license_plate: formData.get('license_plate') || null,
+    mileage: parsed.data.mileage ?? null,
+  });
+
+  if (error) {
+    console.error('[addVehicleToClient error]', error);
+    return { error: error.message };
+  }
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath('/vehicles');
+  return { success: true };
+}
 
 export async function updateClient(clientId: string, formData: FormData) {
   const supabase = await createClient();
   const profile = await getCurrentProfile();
   if (!profile) return { error: 'Nu ești autentificat' };
 
-  const name = formData.get('name') as string;
-  const phone = formData.get('phone') as string;
-  if (!name?.trim() || !phone?.trim()) {
-    return { error: 'Nume și telefon sunt obligatorii' };
+  const parsed = clientSchema.safeParse({
+    name: formData.get('name'),
+    phone: formData.get('phone'),
+    email: formData.get('email'),
+    address: formData.get('address'),
+    client_type: formData.get('client_type'),
+    cui: formData.get('cui'),
+    reg_com: formData.get('reg_com'),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues.map(i => i.message).join('; ') };
   }
 
   const { error } = await supabase
     .from('clients')
     .update({
-      name,
-      phone,
-      email: formData.get('email') || null,
-      address: formData.get('address') || null,
+      name: parsed.data.name,
+      phone: parsed.data.phone,
+      email: parsed.data.email,
+      address: parsed.data.address,
       notes: formData.get('notes') || null,
+      client_type: parsed.data.client_type,
+      cui: parsed.data.client_type === 'persoana_juridica' ? parsed.data.cui : null,
+      reg_com: parsed.data.client_type === 'persoana_juridica' ? parsed.data.reg_com : null,
     })
     .eq('id', clientId)
     .eq('tenant_id', profile.tenant_id);

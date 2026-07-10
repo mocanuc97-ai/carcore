@@ -34,6 +34,7 @@ export default function SettingsClient({ tenant: initialTenant, anafConnection: 
       phone: formData.get('phone') as string,
       email: formData.get('email') as string,
       address: formData.get('address') as string,
+      default_parts_markup_percent: Number(formData.get('default_parts_markup_percent')) || 0,
     };
 
     const { error } = await supabase
@@ -107,6 +108,20 @@ export default function SettingsClient({ tenant: initialTenant, anafConnection: 
           <div>
             <label className="block text-sm mb-1">Adresă</label>
             <input name="address" defaultValue={tenant.address} className="w-full border rounded-xl px-4 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Adaos implicit piese (%)</label>
+            <input
+              name="default_parts_markup_percent"
+              type="number"
+              min={0}
+              step="0.1"
+              defaultValue={tenant.default_parts_markup_percent ?? 20}
+              className="w-full border rounded-xl px-4 py-2"
+            />
+            <p className="text-xs text-zinc-500 mt-1">
+              Folosit ca valoare implicită la înregistrarea în stoc a pieselor din facturile primite de la furnizori.
+            </p>
           </div>
 
           <button type="submit" disabled={loading} className="bg-black text-white px-6 py-2 rounded-xl disabled:opacity-50">

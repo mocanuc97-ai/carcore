@@ -5,7 +5,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { generateInvoicePDF } from '@/lib/invoice/generate';
 import { getResendClient } from '@/lib/resend/client';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { parseAndValidateInvoiceParts } from '@/lib/validation';
 
 export async function createAndSendInvoice(formData: FormData) {
@@ -28,9 +27,23 @@ export async function createAndSendInvoice(formData: FormData) {
     }
 
     const tenantId = profile.tenant_id;
-  const clientId = formData.get('client_id') as string;
+  const vehicleId = (formData.get('vehicle_id') as string) || null;
   const serviceIds = formData.getAll('service_ids') as string[];
   const interventionId = formData.get('intervention_id') as string | null;
+
+  if (!vehicleId) throw new Error('Selectează o mașină pentru a identifica clientul');
+
+  // Client is derived server-side from the vehicle (never trust a client_id
+  // sent directly from the form) — this is the actual "auto-detect client
+  // from selected vehicle" behavior, not just a UI convenience.
+  const { data: vehicleForInvoice } = await supabase
+    .from('vehicles')
+    .select('id, client_id')
+    .eq('id', vehicleId)
+    .eq('tenant_id', tenantId)
+    .single();
+  if (!vehicleForInvoice) throw new Error('Mașina selectată nu a fost găsită');
+  const clientId = vehicleForInvoice.client_id as string;
 
   // Support for purchased parts from distributors
   const partNames = formData.getAll('part_name') as string[];
@@ -142,6 +155,7 @@ export async function createAndSendInvoice(formData: FormData) {
     .insert({
       tenant_id: tenantId,
       client_id: clientId,
+      vehicle_id: vehicleId,
       number: invoiceNumber,
       total,
       status: 'sent',
@@ -296,9 +310,9 @@ export async function createAndSendInvoice(formData: FormData) {
     throw new Error(err.message || 'Eroare la crearea facturii');
   }
 
-  // redirect() throws a special NEXT_REDIRECT signal that Next.js's router
-  // catches higher up — it must never be inside the try/catch above, or the
-  // catch treats it as a real error and shows "NEXT_REDIRECT" to the user
-  // even though the invoice was created successfully.
-  redirect('/invoices');
+  // No redirect() here: this action is invoked as a direct client-side call
+  // (not a <form action>), so redirect()'s special throw would cross the
+  // server/client boundary and get caught by the caller's own try/catch,
+  // showing "NEXT_REDIRECT" as a false error even on success. The caller
+  // (invoices/new/page.tsx) navigates to /invoices itself after a successful await.
 }
