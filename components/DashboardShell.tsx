@@ -17,6 +17,7 @@ import {
   BarChart3,
   Calendar,
   FileText,
+  Truck,
   Settings,
 } from 'lucide-react';
 
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { href: '/interventions', label: 'Intervenții', icon: Wrench, testId: 'nav-interventions' },
   { href: '/services', label: 'Servicii & Prețuri', icon: Tag, testId: 'nav-services' },
   { href: '/parts-inventory', label: 'Stoc Piese', icon: Package, testId: 'nav-parts' },
+  { href: '/received-invoices', label: 'Facturi Primite', icon: Truck, testId: 'nav-received-invoices' },
   { href: '/reports', label: 'Rapoarte Marjă', icon: BarChart3, testId: 'nav-reports' },
   { href: '/appointments', label: 'Programări', icon: Calendar, testId: 'nav-appointments' },
   { href: '/invoices', label: 'Facturi', icon: FileText, testId: 'nav-invoices' },

@@ -6,6 +6,8 @@ import IncompleteBadge from '@/components/IncompleteBadge';
 import SubmitButton from '@/components/SubmitButton';
 import { getClientMissingFields } from '@/lib/profile-completeness';
 import { getCurrentProfile } from '@/lib/supabase/server';
+import { clientSchema } from '@/lib/validation';
+import ClientTypeFields from '@/components/ClientTypeFields';
 
 async function addClient(formData: FormData) {
   'use server';
@@ -14,12 +16,29 @@ async function addClient(formData: FormData) {
   if (!profile) throw new Error('Profil negăsit');
 
   try {
-    await supabase.from('clients').insert({
-      tenant_id: profile.tenant_id,
+    const parsed = clientSchema.safeParse({
       name: formData.get('name'),
       phone: formData.get('phone'),
-      email: formData.get('email') || null,
-      address: formData.get('address') || null,
+      email: formData.get('email'),
+      address: formData.get('address'),
+      client_type: formData.get('client_type'),
+      cui: formData.get('cui'),
+      reg_com: formData.get('reg_com'),
+    });
+    if (!parsed.success) {
+      console.error('[addClient validation]', parsed.error.issues);
+      return;
+    }
+
+    await supabase.from('clients').insert({
+      tenant_id: profile.tenant_id,
+      name: parsed.data.name,
+      phone: parsed.data.phone,
+      email: parsed.data.email,
+      address: parsed.data.address,
+      client_type: parsed.data.client_type,
+      cui: parsed.data.client_type === 'persoana_juridica' ? parsed.data.cui : null,
+      reg_com: parsed.data.client_type === 'persoana_juridica' ? parsed.data.reg_com : null,
     });
 
     revalidatePath('/clients');
@@ -59,7 +78,8 @@ export default async function ClientsPage() {
           <input name="phone" placeholder="Telefon" required maxLength={30} className="border rounded-xl px-4 py-2" data-testid="client-phone" />
           <input name="email" placeholder="Email (opțional)" className="border rounded-xl px-4 py-2" data-testid="client-email" />
           <input name="address" placeholder="Adresă (opțional)" className="border rounded-xl px-4 py-2" data-testid="client-address" />
-          <SubmitButton pendingText="Se adaugă..." className="bg-black text-white rounded-xl md:col-start-4 disabled:opacity-50" data-testid="add-client">Adaugă</SubmitButton>
+          <ClientTypeFields />
+          <SubmitButton pendingText="Se adaugă..." className="bg-black text-white rounded-xl disabled:opacity-50" data-testid="add-client">Adaugă</SubmitButton>
         </form>
       </div>
 
@@ -67,10 +87,11 @@ export default async function ClientsPage() {
         <ExportButton data={clients || []} filename={`clienti_${new Date().toISOString().split('T')[0]}`} />
       </div>
       <div className="bg-white rounded-2xl overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm min-w-[600px]">
+        <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="border-b bg-zinc-50">
               <th className="text-left p-4">Nume</th>
+              <th className="text-left p-4">Tip</th>
               <th className="text-left p-4">Telefon</th>
               <th className="text-left p-4">Email</th>
               <th className="text-left p-4">Data</th>
@@ -84,6 +105,13 @@ export default async function ClientsPage() {
                   <td className="p-4 font-medium max-w-xs truncate" title={client.name}>
                     <Link href={`/clients/${client.id}`} className="hover:underline">{client.name}</Link>
                   </td>
+                  <td className="p-4 text-zinc-600 text-xs">
+                    {client.client_type === 'persoana_juridica' ? (
+                      <span>Firmă{client.cui ? ` · ${client.cui}` : ''}</span>
+                    ) : (
+                      <span>Persoană fizică</span>
+                    )}
+                  </td>
                   <td className="p-4">{client.phone}</td>
                   <td className="p-4 text-zinc-600">{client.email || '-'}</td>
                   <td className="p-4 text-zinc-500">{new Date(client.created_at).toLocaleDateString('ro-RO')}</td>
@@ -93,7 +121,7 @@ export default async function ClientsPage() {
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={5} className="p-8 text-center text-zinc-500">Niciun client înregistrat încă.</td></tr>
+              <tr><td colSpan={6} className="p-8 text-center text-zinc-500">Niciun client înregistrat încă.</td></tr>
             )}
           </tbody>
         </table>

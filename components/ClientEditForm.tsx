@@ -3,6 +3,7 @@
 import { toast } from 'sonner';
 import { updateClient } from '@/app/(dashboard)/clients/[id]/actions';
 import SubmitButton from '@/components/SubmitButton';
+import ClientTypeFields from '@/components/ClientTypeFields';
 
 interface ClientEditFormProps {
   clientId: string;
@@ -11,9 +12,12 @@ interface ClientEditFormProps {
   email: string;
   address: string;
   notes: string;
+  clientType: 'persoana_fizica' | 'persoana_juridica';
+  cui: string;
+  regCom: string;
 }
 
-export default function ClientEditForm({ clientId, name, phone, email, address, notes }: ClientEditFormProps) {
+export default function ClientEditForm({ clientId, name, phone, email, address, notes, clientType, cui, regCom }: ClientEditFormProps) {
   const handleSubmit = async (formData: FormData) => {
     const result = await updateClient(clientId, formData);
     if (result?.error) {
@@ -29,6 +33,7 @@ export default function ClientEditForm({ clientId, name, phone, email, address, 
       <input name="phone" defaultValue={phone} placeholder="Telefon" required maxLength={30} className="border rounded-xl px-4 py-2" />
       <input name="email" defaultValue={email} placeholder="Email" className="border rounded-xl px-4 py-2" />
       <input name="address" defaultValue={address} placeholder="Adresă" className="border rounded-xl px-4 py-2" />
+      <ClientTypeFields defaultType={clientType} defaultCui={cui} defaultRegCom={regCom} />
       <textarea
         name="notes"
         defaultValue={notes}

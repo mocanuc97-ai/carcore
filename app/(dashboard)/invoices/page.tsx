@@ -14,7 +14,7 @@ export default async function InvoicesPage() {
 
   const { data: invoices } = await supabase
     .from('invoices')
-    .select('*, clients(name)')
+    .select('*, clients(name), vehicles(make, model, license_plate)')
     .eq('tenant_id', tenantId)
     .order('issued_at', { ascending: false });
 
@@ -63,6 +63,7 @@ export default async function InvoicesPage() {
             <tr className="border-b bg-zinc-50">
               <th className="p-4 text-left">Număr</th>
               <th className="p-4 text-left">Client</th>
+              <th className="p-4 text-left">Mașină</th>
               <th className="p-4 text-left">Total</th>
               <th className="p-4 text-left">Status</th>
               <th className="p-4 text-left">PDF</th>
@@ -76,6 +77,9 @@ export default async function InvoicesPage() {
                 <tr key={inv.id} className="border-b last:border-0">
                   <td className="p-4 font-mono text-xs">{inv.number}</td>
                   <td className="p-4">{inv.clients?.name}</td>
+                  <td className="p-4 text-zinc-600 text-xs">
+                    {inv.vehicles ? `${inv.vehicles.make} ${inv.vehicles.model}${inv.vehicles.license_plate ? ` (${inv.vehicles.license_plate})` : ''}` : '-'}
+                  </td>
                   <td className="p-4 font-medium">{inv.total} RON</td>
                   <td className="p-4">
                     <span className="px-2.5 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-700">
@@ -146,7 +150,7 @@ export default async function InvoicesPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={isAdmin ? 7 : 5} className="p-8 text-center text-zinc-500">
+                <td colSpan={isAdmin ? 8 : 6} className="p-8 text-center text-zinc-500">
                   Nicio factură înregistrată încă.
                 </td>
               </tr>

@@ -3,6 +3,7 @@ import { getCurrentProfile } from '@/lib/supabase/server';
 import Link from 'next/link';
 import IncompleteBadge from '@/components/IncompleteBadge';
 import ClientEditForm from '@/components/ClientEditForm';
+import AddVehicleForm from '@/components/AddVehicleForm';
 import { getClientMissingFields, getVehicleMissingFields } from '@/lib/profile-completeness';
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -49,11 +50,18 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           email={client.email || ''}
           address={client.address || ''}
           notes={client.notes || ''}
+          clientType={client.client_type || 'persoana_fizica'}
+          cui={client.cui || ''}
+          regCom={client.reg_com || ''}
         />
       </div>
 
       <div className="mt-8">
         <h2 className="font-semibold mb-3">Mașini ({vehicles?.length || 0})</h2>
+        <div className="bg-white rounded-2xl p-6 mb-4">
+          <h3 className="font-medium mb-4 text-sm">Adaugă mașină nouă pentru acest client</h3>
+          <AddVehicleForm clientId={client.id} />
+        </div>
         <div className="bg-white rounded-2xl overflow-hidden overflow-x-auto">
           <table className="w-full text-sm min-w-[500px]">
             <thead>

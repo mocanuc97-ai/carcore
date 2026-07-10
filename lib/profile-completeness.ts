@@ -7,12 +7,15 @@
 interface ClientCompletenessInput {
   email?: string | null;
   address?: string | null;
+  client_type?: string | null;
+  cui?: string | null;
 }
 
 export function getClientMissingFields(client: ClientCompletenessInput): string[] {
   const missing: string[] = [];
   if (!client.email) missing.push('email');
   if (!client.address) missing.push('adresă');
+  if (client.client_type === 'persoana_juridica' && !client.cui) missing.push('CUI');
   return missing;
 }
 

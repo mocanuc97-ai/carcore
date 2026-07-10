@@ -6,9 +6,9 @@ import { toast } from 'sonner';
 import { createAndSendInvoice } from '../actions';
 
 export default function NewInvoicePage() {
-  const [clients, setClients] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [clientParts, setClientParts] = useState<any[]>([]);
   const [clientInterventions, setClientInterventions] = useState<any[]>([]);
   const [selectedInterventionId, setSelectedInterventionId] = useState('');
@@ -19,6 +19,10 @@ export default function NewInvoicePage() {
 
   const supabase = createClient();
 
+  const selectedVehicle = vehicles.find((v: any) => v.id === selectedVehicleId);
+  const selectedClientId = selectedVehicle?.client_id || '';
+  const selectedClientName = selectedVehicle?.clients?.name || '';
+
   useEffect(() => {
     async function loadInitial() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -28,10 +32,12 @@ export default function NewInvoicePage() {
         tenantId = prof?.tenant_id || null;
       }
 
-      let clQuery = supabase.from('clients').select('id, name');
-      if (tenantId) clQuery = clQuery.eq('tenant_id', tenantId);
-      const { data: cl } = await clQuery;
-      if (cl) setClients(cl);
+      // Vehicle selection drives client identification — pick the car, the
+      // client is looked up from vehicles.client_id automatically.
+      let vhQuery = supabase.from('vehicles').select('id, make, model, license_plate, vin, client_id, clients(id, name)').order('created_at', { ascending: false });
+      if (tenantId) vhQuery = vhQuery.eq('tenant_id', tenantId);
+      const { data: vh } = await vhQuery;
+      if (vh) setVehicles(vh);
 
       let svQuery = supabase.from('services').select('*').eq('is_active', true).order('name');
       if (tenantId) svQuery = svQuery.eq('tenant_id', tenantId);
@@ -48,40 +54,34 @@ export default function NewInvoicePage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedClientId) {
+    if (!selectedVehicleId) {
       setClientParts([]);
       setClientInterventions([]);
       setSelectedInterventionId('');
       return;
     }
 
-    async function loadClientData() {
-      // Load vehicles
-      const { data: vehs } = await supabase.from('vehicles').select('id').eq('client_id', selectedClientId);
-      if (!vehs || vehs.length === 0) return;
-
-      const vehicleIds = vehs.map((v: any) => v.id);
-
-      // Load parts
+    async function loadVehicleData() {
+      // Load parts used on this specific vehicle
       const { data: prts } = await supabase
         .from('parts')
         .select('*')
-        .in('vehicle_id', vehicleIds)
+        .eq('vehicle_id', selectedVehicleId)
         .order('created_at', { ascending: false })
         .limit(10);
       if (prts) setClientParts(prts);
 
-      // Load interventions for this client (to auto-link parts)
+      // Load interventions for this vehicle (to auto-link parts)
       const { data: ints } = await supabase
         .from('interventions')
         .select('id, description, performed_at, vehicles(make, model)')
-        .in('vehicle_id', vehicleIds)
+        .eq('vehicle_id', selectedVehicleId)
         .order('performed_at', { ascending: false })
         .limit(5);
       if (ints) setClientInterventions(ints);
     }
-    loadClientData();
-  }, [selectedClientId]);
+    loadVehicleData();
+  }, [selectedVehicleId]);
 
   const addManualPart = () => {
     setManualParts([...manualParts, { name: '', qty: 1, price: 1, cost: 0 }]);
@@ -123,8 +123,8 @@ export default function NewInvoicePage() {
     setLoading(true);
 
     // Client-side validation to prevent bypass of weak HTML (negatives, empty, no items)
-    if (!selectedClientId) {
-      toast.error('Selectează un client');
+    if (!selectedVehicleId || !selectedClientId) {
+      toast.error('Selectează o mașină (clientul se identifică automat)');
       setLoading(false);
       return;
     }
@@ -163,6 +163,7 @@ export default function NewInvoicePage() {
 
     const formData = new FormData();
     formData.append('client_id', selectedClientId);
+    formData.append('vehicle_id', selectedVehicleId);
     if (selectedInterventionId) formData.append('intervention_id', selectedInterventionId);
 
     selectedServices.forEach(id => formData.append('service_ids', id));
@@ -197,19 +198,31 @@ export default function NewInvoicePage() {
 
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl max-w-2xl space-y-5">
         <div>
-          <label className="block text-sm font-medium mb-1">Client</label>
+          <label className="block text-sm font-medium mb-1">Mașină</label>
           <select
-            data-testid="invoice-client-select"
-            value={selectedClientId}
-            onChange={(e) => setSelectedClientId(e.target.value)}
+            data-testid="invoice-vehicle-select"
+            value={selectedVehicleId}
+            onChange={(e) => setSelectedVehicleId(e.target.value)}
             required
             className="w-full border rounded-xl px-4 py-2.5"
           >
-            <option value="">Selectează client</option>
-            {clients.map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+            <option value="">Selectează mașina</option>
+            {vehicles.map((v: any) => (
+              <option key={v.id} value={v.id}>
+                {v.make} {v.model} {v.license_plate ? `- ${v.license_plate}` : ''} ({v.clients?.name})
+              </option>
             ))}
           </select>
+          {selectedVehicleId && (
+            <p className="text-xs text-zinc-500 mt-1.5" data-testid="invoice-auto-client">
+              Client identificat automat: <span className="font-medium text-zinc-700">{selectedClientName}</span>
+            </p>
+          )}
+          {vehicles.length === 0 && (
+            <p className="text-xs text-red-600 mt-1.5">
+              Niciun vehicul înregistrat încă. Adaugă mai întâi o mașină din pagina unui client.
+            </p>
+          )}
         </div>
 
         <div>
@@ -217,8 +230,8 @@ export default function NewInvoicePage() {
           <div className="border rounded-xl p-4 max-h-48 overflow-auto space-y-2 bg-zinc-50">
             {services.map((s: any) => (
               <label key={s.id} className="flex items-center gap-3 cursor-pointer">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={selectedServices.includes(s.id)}
                   onChange={(e) => {
                     if (e.target.checked) {
@@ -226,8 +239,8 @@ export default function NewInvoicePage() {
                     } else {
                       setSelectedServices(selectedServices.filter(id => id !== s.id));
                     }
-                  }} 
-                  className="w-4 h-4" 
+                  }}
+                  className="w-4 h-4"
                 />
                 <span className="flex-1">{s.name}</span>
                 <span className="font-medium">{s.price} RON</span>
@@ -240,8 +253,8 @@ export default function NewInvoicePage() {
         {clientInterventions.length > 0 && (
           <div>
             <label className="block text-sm font-medium mb-1">Alege intervenție (piese se adaugă automat)</label>
-            <select 
-              value={selectedInterventionId} 
+            <select
+              value={selectedInterventionId}
               onChange={(e) => setSelectedInterventionId(e.target.value)}
               className="w-full border rounded-xl px-4 py-2 text-sm mb-2"
             >
@@ -258,7 +271,7 @@ export default function NewInvoicePage() {
         {/* Parts from this client's interventions */}
         {clientParts.length > 0 && (
           <div>
-            <label className="block text-sm font-medium mb-2">Piese din intervențiile clientului (selectează)</label>
+            <label className="block text-sm font-medium mb-2">Piese din intervențiile mașinii (selectează)</label>
             <div className="border rounded-xl p-4 space-y-2 bg-zinc-50">
               {clientParts
                 .filter((p: any) => !selectedInterventionId || p.intervention_id === selectedInterventionId)
@@ -282,50 +295,50 @@ export default function NewInvoicePage() {
           <div className="space-y-2">
             {manualParts.map((p, i) => (
               <div key={i} className="grid grid-cols-12 gap-2">
-                <input 
-                  name="part_name" 
-                  placeholder="Nume piesă" 
-                  value={p.name} 
-                  onChange={(e) => updateManualPart(i, 'name', e.target.value)} 
-                  className="col-span-4 border rounded-xl px-3 py-2 text-sm" 
+                <input
+                  name="part_name"
+                  placeholder="Nume piesă"
+                  value={p.name}
+                  onChange={(e) => updateManualPart(i, 'name', e.target.value)}
+                  className="col-span-4 border rounded-xl px-3 py-2 text-sm"
                 />
-                <input 
-                  name="part_qty" 
-                  type="number" 
-                  min="0.01" 
-                  step="0.01" 
-                  value={p.qty} 
-                  onChange={(e) => updateManualPart(i, 'qty', e.target.value)} 
-                  className="col-span-2 border rounded-xl px-3 py-2 text-sm" 
-                  required 
+                <input
+                  name="part_qty"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={p.qty}
+                  onChange={(e) => updateManualPart(i, 'qty', e.target.value)}
+                  className="col-span-2 border rounded-xl px-3 py-2 text-sm"
+                  required
                 />
-                <input 
-                  name="part_cost" 
-                  type="number" 
-                  step="0.01" 
-                  min="0" 
-                  placeholder="Cost ach." 
-                  value={p.cost || 0} 
-                  onChange={(e) => updateManualPart(i, 'cost', e.target.value)} 
-                  className="col-span-3 border rounded-xl px-3 py-2 text-sm" 
+                <input
+                  name="part_cost"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Cost ach."
+                  value={p.cost || 0}
+                  onChange={(e) => updateManualPart(i, 'cost', e.target.value)}
+                  className="col-span-3 border rounded-xl px-3 py-2 text-sm"
                 />
-                <input 
-                  name="part_price" 
-                  type="number" 
-                  step="0.01" 
-                  min="0.01" 
-                  placeholder="Preț vânz." 
-                  value={p.price} 
-                  onChange={(e) => updateManualPart(i, 'price', e.target.value)} 
-                  className="col-span-3 border rounded-xl px-3 py-2 text-sm" 
-                  required 
+                <input
+                  name="part_price"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="Preț vânz."
+                  value={p.price}
+                  onChange={(e) => updateManualPart(i, 'price', e.target.value)}
+                  className="col-span-3 border rounded-xl px-3 py-2 text-sm"
+                  required
                 />
               </div>
             ))}
           </div>
           {manualParts.some(p => p.name.trim()) && (
             <div className="text-xs text-zinc-500">
-              Stoc verificat pentru piese manuale (doar acestea deduc stoc la facturare). 
+              Stoc verificat pentru piese manuale (doar acestea deduc stoc la facturare).
               {hasInsufficientManualStock() && <span className="text-red-600 ml-1 font-medium">⚠️ O parte manuală depășește stocul - buton dezactivat.</span>}
             </div>
           )}
@@ -333,7 +346,7 @@ export default function NewInvoicePage() {
 
         <button
           type="submit"
-          disabled={Boolean(loading || !selectedClientId || hasInsufficientManualStock())}
+          disabled={Boolean(loading || !selectedVehicleId || hasInsufficientManualStock())}
           className="w-full bg-black text-white py-3 rounded-xl font-medium hover:bg-zinc-900 disabled:opacity-50"
         >
           {loading ? 'Se creează...' : (hasInsufficientManualStock() ? 'Stoc insuficient pentru piese manuale' : 'Creează factură + Trimite pe email (cu PDF)')}
