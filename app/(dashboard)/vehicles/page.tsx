@@ -78,8 +78,8 @@ export default async function VehiclesPage() {
       <div className="flex justify-end mb-2">
         <ExportButton data={vehicles || []} filename={`vehicule_${new Date().toISOString().split('T')[0]}`} />
       </div>
-      <div className="bg-white rounded-2xl overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-2xl overflow-hidden overflow-x-auto">
+        <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="border-b">
               <th className="p-4 text-left">Client</th>

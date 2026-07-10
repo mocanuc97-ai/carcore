@@ -60,8 +60,8 @@ export default async function ServicesPage() {
         </form>
       </div>
 
-      <div className="bg-white rounded-2xl p-2">
-        <table className="w-full">
+      <div className="bg-white rounded-2xl p-2 overflow-x-auto">
+        <table className="w-full min-w-[400px]">
           <thead>
             <tr className="text-left text-sm text-zinc-500 border-b">
               <th className="p-4">Serviciu</th>

@@ -37,8 +37,8 @@ export default async function ReportsPage() {
     <div>
       <h1 className="text-2xl font-semibold mb-6">Rapoarte - Marjă pe Distribuitor</h1>
 
-      <div className="bg-white rounded-2xl p-6">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-2xl p-6 overflow-x-auto">
+        <table className="w-full text-sm min-w-[400px]">
           <thead>
             <tr className="border-b">
               <th className="text-left p-2">Distribuitor</th>

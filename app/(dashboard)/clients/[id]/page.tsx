@@ -54,8 +54,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
       <div className="mt-8">
         <h2 className="font-semibold mb-3">Mașini ({vehicles?.length || 0})</h2>
-        <div className="bg-white rounded-2xl overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-2xl overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm min-w-[500px]">
             <thead>
               <tr className="border-b bg-zinc-50">
                 <th className="text-left p-4">Marcă / Model</th>
