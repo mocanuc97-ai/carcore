@@ -291,9 +291,14 @@ export async function createAndSendInvoice(formData: FormData) {
   }
 
   revalidatePath('/invoices');
-  redirect('/invoices');
   } catch (err: any) {
     console.error('[createAndSendInvoice error]', err);
     throw new Error(err.message || 'Eroare la crearea facturii');
   }
+
+  // redirect() throws a special NEXT_REDIRECT signal that Next.js's router
+  // catches higher up — it must never be inside the try/catch above, or the
+  // catch treats it as a real error and shows "NEXT_REDIRECT" to the user
+  // even though the invoice was created successfully.
+  redirect('/invoices');
 }

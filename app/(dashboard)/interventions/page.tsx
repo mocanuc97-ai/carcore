@@ -125,9 +125,11 @@ export default function InterventionsPage() {
     if (error) {
       toast.error('Eroare: ' + error.message);
     } else {
-      const msg = photoPaths.length > 0 
-        ? `Intervenție salvată cu ${photoPaths.length} poze` 
-        : 'Intervenție salvată (fără poze din cauza erorilor upload)';
+      const msg = photoPaths.length > 0
+        ? `Intervenție salvată cu ${photoPaths.length} poze`
+        : uploadErrors.length > 0
+          ? 'Intervenție salvată (fără poze din cauza erorilor upload)'
+          : 'Intervenție salvată';
       toast.success(msg);
       setDescription('');
       setFiles([]);
@@ -160,8 +162,12 @@ export default function InterventionsPage() {
     formData.append('selling_price', String(partForm.selling_price));
 
     try {
-      await addPartToIntervention(formData);
-      toast.success('Piesă adăugată (stoc pre-verificat)');
+      const result = await addPartToIntervention(formData);
+      toast.success(
+        result?.trackedStock
+          ? 'Piesă adăugată (stoc actualizat)'
+          : 'Piesă adăugată (fără evidență în stoc — adaug-o din "Stoc Piese" ca să urmărești cantitatea)'
+      );
       setPartForm({ intervention_id: '', name: '', distributor: '', qty: 1, purchase_price: 0, selling_price: 1 });
       await loadData();
     } catch (err: any) {

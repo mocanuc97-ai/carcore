@@ -56,7 +56,13 @@ export async function addPartToIntervention(formData: FormData) {
     .eq('distributor', distributor || '')
     .single();
 
+  // No matching inventory row (part never purchased via Stoc Piese) — nothing
+  // to deduct from, so this part is not stock-tracked. The caller must not
+  // claim "stoc pre-verificat" in this case (found via QA testing).
+  let trackedStock = false;
+
   if (inv) {
+    trackedStock = true;
     const current = Number(inv.current_stock) || 0;
     if (current < qty) {
       throw new Error(`Stoc insuficient pentru "${name}" (disponibil: ${current}, cerut: ${qty}). Deductie anulata.`);
@@ -78,6 +84,7 @@ export async function addPartToIntervention(formData: FormData) {
 
   revalidatePath('/interventions');
   revalidatePath('/parts-inventory');
+  return { trackedStock };
   } catch (err: any) {
     console.error('[addPartToIntervention error]', err);
     throw new Error(err.message || 'Eroare la adăugare piesă');

@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
 import ExportButton from '@/components/ExportButton';
 import IncompleteBadge from '@/components/IncompleteBadge';
+import SubmitButton from '@/components/SubmitButton';
 import { getClientMissingFields } from '@/lib/profile-completeness';
 import { getCurrentProfile } from '@/lib/supabase/server';
 
@@ -54,11 +55,11 @@ export default async function ClientsPage() {
       <div className="bg-white rounded-2xl p-6 mb-8">
         <h3 className="font-medium mb-4">Adaugă client nou</h3>
         <form action={addClient} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <input name="name" placeholder="Nume complet" required className="border rounded-xl px-4 py-2" data-testid="client-name" />
-          <input name="phone" placeholder="Telefon" required className="border rounded-xl px-4 py-2" data-testid="client-phone" />
+          <input name="name" placeholder="Nume complet" required maxLength={100} className="border rounded-xl px-4 py-2" data-testid="client-name" />
+          <input name="phone" placeholder="Telefon" required maxLength={30} className="border rounded-xl px-4 py-2" data-testid="client-phone" />
           <input name="email" placeholder="Email (opțional)" className="border rounded-xl px-4 py-2" data-testid="client-email" />
           <input name="address" placeholder="Adresă (opțional)" className="border rounded-xl px-4 py-2" data-testid="client-address" />
-          <button type="submit" className="bg-black text-white rounded-xl md:col-start-4" data-testid="add-client">Adaugă</button>
+          <SubmitButton pendingText="Se adaugă..." className="bg-black text-white rounded-xl md:col-start-4 disabled:opacity-50" data-testid="add-client">Adaugă</SubmitButton>
         </form>
       </div>
 
@@ -80,7 +81,7 @@ export default async function ClientsPage() {
             {clients && clients.length > 0 ? (
               clients.map((client: any) => (
                 <tr key={client.id} className="border-b last:border-none">
-                  <td className="p-4 font-medium">
+                  <td className="p-4 font-medium max-w-xs truncate" title={client.name}>
                     <Link href={`/clients/${client.id}`} className="hover:underline">{client.name}</Link>
                   </td>
                   <td className="p-4">{client.phone}</td>

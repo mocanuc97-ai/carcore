@@ -4,6 +4,7 @@ import ExportButton from '@/components/ExportButton';
 import IncompleteBadge from '@/components/IncompleteBadge';
 import { getVehicleMissingFields } from '@/lib/profile-completeness';
 import { getCurrentProfile } from '@/lib/supabase/server';
+import { vehicleSchema } from '@/lib/validation';
 
 async function addVehicle(formData: FormData) {
   'use server';
@@ -11,16 +12,27 @@ async function addVehicle(formData: FormData) {
   const profile = await getCurrentProfile();
   if (!profile) throw new Error('Profil negăsit');
 
+  const parsed = vehicleSchema.safeParse({
+    make: formData.get('make'),
+    model: formData.get('model'),
+    year: formData.get('year'),
+    mileage: formData.get('mileage'),
+  });
+  if (!parsed.success) {
+    console.error('[addVehicle validation]', parsed.error.issues);
+    return;
+  }
+
   try {
     await supabase.from('vehicles').insert({
       tenant_id: profile.tenant_id,
       client_id: formData.get('client_id'),
-      make: formData.get('make'),
-      model: formData.get('model'),
-      year: formData.get('year') ? parseInt(formData.get('year') as string) : null,
+      make: parsed.data.make,
+      model: parsed.data.model,
+      year: parsed.data.year ?? null,
       vin: formData.get('vin') || null,
       license_plate: formData.get('license_plate') || null,
-      mileage: formData.get('mileage') ? parseInt(formData.get('mileage') as string) : null,
+      mileage: parsed.data.mileage ?? null,
     });
 
     revalidatePath('/vehicles');
@@ -57,8 +69,8 @@ export default async function VehiclesPage() {
           <input name="model" placeholder="Model" required className="border rounded-xl px-4 py-2" />
           <input name="vin" placeholder="Serie caroserie (VIN)" className="border rounded-xl px-4 py-2" />
           <input name="license_plate" placeholder="Număr înmatriculare" className="border rounded-xl px-4 py-2" />
-          <input name="year" type="number" placeholder="An" className="border rounded-xl px-4 py-2" />
-          <input name="mileage" type="number" placeholder="Km" className="border rounded-xl px-4 py-2" />
+          <input name="year" type="number" placeholder="An" min={1950} max={new Date().getFullYear() + 1} className="border rounded-xl px-4 py-2" />
+          <input name="mileage" type="number" placeholder="Km" min={0} max={2000000} className="border rounded-xl px-4 py-2" />
           <button className="bg-black text-white rounded-xl col-span-2 md:col-span-1">Adaugă mașină</button>
         </form>
       </div>

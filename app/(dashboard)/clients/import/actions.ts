@@ -30,8 +30,11 @@ export async function importClientsAndVehicles(formData: FormData): Promise<Impo
   if (!profile) return { error: 'Nu ești autentificat', ...EMPTY_RESULT };
 
   const file = formData.get('file');
-  if (!(file instanceof File) || file.size === 0) {
+  if (!(file instanceof File)) {
     return { error: 'Selectează un fișier CSV', ...EMPTY_RESULT };
+  }
+  if (file.size === 0) {
+    return { error: 'Fișierul selectat este gol', ...EMPTY_RESULT };
   }
 
   const text = await file.text();
@@ -84,6 +87,12 @@ export async function importClientsAndVehicles(formData: FormData): Promise<Impo
   }
   const pendingVehicles: PendingVehicle[] = [];
   let vehiclesSkippedDuplicate = 0;
+  // Tracked separately from pendingVehicles: a client can be "already existing"
+  // even if every one of their rows turns out to be a duplicate vehicle (which
+  // `return`s before reaching pendingVehicles) — found via QA testing, where
+  // re-uploading a file reported 0 matched clients despite them genuinely
+  // already existing.
+  const matchedPhones = new Set<string>();
 
   records.forEach((r, idx) => {
     const lineNumber = idx + 2; // +1 for 0-index, +1 for header row
@@ -96,6 +105,8 @@ export async function importClientsAndVehicles(formData: FormData): Promise<Impo
       rowErrors.push(`Rândul ${lineNumber}: lipsește un câmp obligatoriu (nume_client, telefon_client, marca sau model)`);
       return;
     }
+
+    if (clientIdByPhone.has(phone)) matchedPhones.add(phone);
 
     const vin = r['vin'] || null;
     const licensePlate = r['numar_inmatriculare'] || null;
@@ -156,10 +167,7 @@ export async function importClientsAndVehicles(formData: FormData): Promise<Impo
     (inserted || []).forEach((c) => clientIdByPhone.set(c.phone, c.id));
   }
 
-  const clientsMatched = pendingVehicles.reduce((set, v) => {
-    if (!newClientsByPhone.has(v.clientPhone)) set.add(v.clientPhone);
-    return set;
-  }, new Set<string>()).size;
+  const clientsMatched = matchedPhones.size;
 
   let vehiclesCreated = 0;
   if (pendingVehicles.length > 0) {

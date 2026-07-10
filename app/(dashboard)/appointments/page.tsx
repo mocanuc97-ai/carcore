@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Calendar from '@/components/Calendar';
 import { sendAppointmentReminder, createAppointment, updateAppointmentStatus } from './actions';
@@ -26,37 +26,43 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
-  useEffect(() => {
-    async function loadData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      let tenantId: string | null = null;
-      if (user) {
-        const { data: prof } = await supabase.from('profiles').select('tenant_id').eq('id', user.id).single();
-        tenantId = prof?.tenant_id || null;
-      }
-
-      let apptsQuery = supabase
-        .from('appointments')
-        .select('*, clients(name, email), vehicles(make, model, license_plate)')
-        .order('scheduled_at', { ascending: true });
-      if (tenantId) apptsQuery = apptsQuery.eq('tenant_id', tenantId);
-      const { data: appts } = await apptsQuery;
-      if (appts) setAppointments(appts as any);
-
-      let clQuery = supabase.from('clients').select('id, name');
-      if (tenantId) clQuery = clQuery.eq('tenant_id', tenantId);
-      const { data: cl } = await clQuery;
-      if (cl) setClients(cl);
-
-      let vehQuery = supabase.from('vehicles').select('id, make, model, license_plate, client_id');
-      if (tenantId) vehQuery = vehQuery.eq('tenant_id', tenantId);
-      const { data: veh } = await vehQuery;
-      if (veh) setVehicles(veh);
-
-      setLoading(false);
+  // Server actions revalidatePath('/appointments'), but this page fetches its
+  // data client-side, which revalidatePath does not touch — so it must be
+  // re-run explicitly after every mutation (create, status change) or the UI
+  // shows stale data until a manual reload.
+  const loadData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    let tenantId: string | null = null;
+    if (user) {
+      const { data: prof } = await supabase.from('profiles').select('tenant_id').eq('id', user.id).single();
+      tenantId = prof?.tenant_id || null;
     }
-    loadData();
+
+    let apptsQuery = supabase
+      .from('appointments')
+      .select('*, clients(name, email), vehicles(make, model, license_plate)')
+      .order('scheduled_at', { ascending: true });
+    if (tenantId) apptsQuery = apptsQuery.eq('tenant_id', tenantId);
+    const { data: appts } = await apptsQuery;
+    if (appts) setAppointments(appts as any);
+
+    let clQuery = supabase.from('clients').select('id, name');
+    if (tenantId) clQuery = clQuery.eq('tenant_id', tenantId);
+    const { data: cl } = await clQuery;
+    if (cl) setClients(cl);
+
+    let vehQuery = supabase.from('vehicles').select('id, make, model, license_plate, client_id');
+    if (tenantId) vehQuery = vehQuery.eq('tenant_id', tenantId);
+    const { data: veh } = await vehQuery;
+    if (veh) setVehicles(veh);
+
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const filteredAppointments = selectedDate 
     ? appointments.filter(a => {
@@ -206,24 +212,30 @@ export default function AppointmentsPage() {
           <form onSubmit={async (e) => {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
-            await createAppointment(fd);
-            setShowCreate(false);
+            try {
+              await createAppointment(fd);
+              toast.success('Programare creată');
+              setShowCreate(false);
+              await loadData();
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Eroare la creare programare');
+            }
           }} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input type="hidden" name="scheduled_at" value={createDate} />
             <select name="client_id" required className="border rounded-xl px-4 py-2" onChange={(e) => setSelectedClientId(e.target.value)}>
-              <option value="">Select client</option>
+              <option value="">Selectează client</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <select name="vehicle_id" required className="border rounded-xl px-4 py-2">
-              <option value="">Select vehicle</option>
+              <option value="">Selectează mașina</option>
               {vehicles.filter(v => !selectedClientId || v.client_id === selectedClientId).map(v => (
                 <option key={v.id} value={v.id}>{v.make} {v.model} ({v.license_plate})</option>
               ))}
             </select>
-            <input name="notes" placeholder="Notes (optional)" className="border rounded-xl px-4 py-2 md:col-span-2" />
+            <input name="notes" placeholder="Notițe (opțional)" className="border rounded-xl px-4 py-2 md:col-span-2" />
             <div className="md:col-span-2 flex gap-2">
-              <button type="submit" className="bg-black text-white px-6 py-2 rounded-xl">Create Appointment</button>
-              <button type="button" onClick={() => setShowCreate(false)} className="border px-6 py-2 rounded-xl">Cancel</button>
+              <button type="submit" className="bg-black text-white px-6 py-2 rounded-xl">Creează programarea</button>
+              <button type="button" onClick={() => setShowCreate(false)} className="border px-6 py-2 rounded-xl">Anulează</button>
             </div>
           </form>
         </div>
@@ -256,10 +268,20 @@ export default function AppointmentsPage() {
                   <span className="px-3 py-1 text-xs rounded-full bg-zinc-100">{a.status}</span>
 
                   {a.status === 'pending' && (
-                    <button onClick={() => updateAppointmentStatus(a.id, 'confirmed')} className="text-xs px-2 py-1 border rounded hover:bg-blue-50">Confirmă</button>
+                    <button
+                      onClick={async () => { await updateAppointmentStatus(a.id, 'confirmed'); await loadData(); }}
+                      className="text-xs px-2 py-1 border rounded hover:bg-blue-50"
+                    >
+                      Confirmă
+                    </button>
                   )}
                   {a.status === 'confirmed' && (
-                    <button onClick={() => updateAppointmentStatus(a.id, 'completed')} className="text-xs px-2 py-1 border rounded hover:bg-green-50">Completează</button>
+                    <button
+                      onClick={async () => { await updateAppointmentStatus(a.id, 'completed'); await loadData(); }}
+                      className="text-xs px-2 py-1 border rounded hover:bg-green-50"
+                    >
+                      Completează
+                    </button>
                   )}
 
                   {a.clients?.email && (

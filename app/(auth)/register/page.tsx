@@ -1,7 +1,13 @@
 import { createTenantAndProfile } from '../actions';
 import { redirect } from 'next/navigation';
 
-export default async function RegisterPage() {
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+
   async function handleSubmit(formData: FormData) {
     'use server';
 
@@ -21,6 +27,12 @@ export default async function RegisterPage() {
     <div className="bg-white rounded-2xl p-8 shadow-xl">
       <h2 className="text-2xl font-semibold mb-2 text-black">Creează un service nou</h2>
       <p className="text-sm text-zinc-600 mb-6">Înregistrează-ți service-ul auto în CarCore</p>
+
+      {error && (
+        <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <form action={handleSubmit} className="space-y-4">
         <div>

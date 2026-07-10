@@ -2,8 +2,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import Link from 'next/link';
 import IncompleteBadge from '@/components/IncompleteBadge';
+import ClientEditForm from '@/components/ClientEditForm';
 import { getClientMissingFields, getVehicleMissingFields } from '@/lib/profile-completeness';
-import { updateClient } from './actions';
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -42,20 +42,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
       <div className="bg-white rounded-2xl p-6 mt-6 max-w-2xl">
         <h3 className="font-medium mb-4">Editează datele clientului</h3>
-        <form action={updateClient.bind(null, client.id)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input name="name" defaultValue={client.name} placeholder="Nume complet" required className="border rounded-xl px-4 py-2" />
-          <input name="phone" defaultValue={client.phone} placeholder="Telefon" required className="border rounded-xl px-4 py-2" />
-          <input name="email" defaultValue={client.email || ''} placeholder="Email" className="border rounded-xl px-4 py-2" />
-          <input name="address" defaultValue={client.address || ''} placeholder="Adresă" className="border rounded-xl px-4 py-2" />
-          <textarea
-            name="notes"
-            defaultValue={client.notes || ''}
-            placeholder="Notițe"
-            className="border rounded-xl px-4 py-2 md:col-span-2"
-            rows={2}
-          />
-          <button type="submit" className="bg-black text-white rounded-xl px-4 py-2 md:col-span-2">Salvează</button>
-        </form>
+        <ClientEditForm
+          clientId={client.id}
+          name={client.name}
+          phone={client.phone}
+          email={client.email || ''}
+          address={client.address || ''}
+          notes={client.notes || ''}
+        />
       </div>
 
       <div className="mt-8">

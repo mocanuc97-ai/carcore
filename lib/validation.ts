@@ -22,6 +22,23 @@ export const serviceSchema = z.object({
   ),
 });
 
+// Vehicle creation/update — year and mileage are optional but, when present,
+// must be within a sane range (found via QA testing: -5 and 9999 were
+// previously accepted with no validation at all).
+const currentYear = new Date().getFullYear();
+export const vehicleSchema = z.object({
+  make: z.string().trim().min(1, 'Marca este obligatorie'),
+  model: z.string().trim().min(1, 'Modelul este obligatoriu'),
+  year: z.preprocess(
+    (val) => (val === '' || val == null ? null : val),
+    z.coerce.number().int().min(1950, 'An prea vechi').max(currentYear + 1, 'An invalid').nullable().optional()
+  ),
+  mileage: z.preprocess(
+    (val) => (val === '' || val == null ? null : val),
+    z.coerce.number().int().nonnegative('Km nu poate fi negativ').max(2000000, 'Valoare km neverosimilă').nullable().optional()
+  ),
+});
+
 // Part purchase (inventory)
 export const partPurchaseSchema = z.object({
   name: z.string().trim().min(1, 'Numele piesei este obligatoriu'),

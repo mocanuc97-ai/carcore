@@ -58,19 +58,20 @@ export async function sendToEfactura(invoiceId: string) {
     // Currently simulates.
     const result = await submitToANAF(signedXml, connection, invoice.tenant_id);
 
-    const updateData: any = {
-      efactura_status: result.status || 'sent',
-      efactura_id: result.efactura_id,
-    };
-
-    if (result.message) {
-      updateData.last_error = result.message;
-    }
-
-    await supabase
+    // Note: invoices has no last_error column (only tenant_anaf_connections does) —
+    // writing one here silently failed the whole update, so "Trimite ANAF" never
+    // actually persisted a status change despite reporting success.
+    const { error: updateError } = await supabase
       .from('invoices')
-      .update(updateData)
+      .update({
+        efactura_status: result.status || 'sent',
+        efactura_id: result.efactura_id,
+      })
       .eq('id', invoiceId);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
 
     revalidatePath('/invoices');
   } catch (err: any) {
