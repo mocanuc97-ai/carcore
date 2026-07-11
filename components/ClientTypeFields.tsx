@@ -12,15 +12,14 @@ interface ClientTypeFieldsProps {
 // persoana_juridica; hiding them for persoana_fizica avoids confusing the
 // (majority) individual-client case with company-only paperwork fields.
 export default function ClientTypeFields({ defaultType = 'persoana_fizica', defaultCui = '', defaultRegCom = '' }: ClientTypeFieldsProps) {
-  const [clientType, setClientType] = useState(defaultType);
-  const isCompany = clientType === 'persoana_juridica';
+  const [isCompany, setIsCompany] = useState(defaultType === 'persoana_juridica');
 
   return (
     <>
       <select
         name="client_type"
-        value={clientType}
-        onChange={(e) => setClientType(e.target.value as 'persoana_fizica' | 'persoana_juridica')}
+        defaultValue={defaultType}
+        onChange={(e) => setIsCompany(e.target.value === 'persoana_juridica')}
         className="border rounded-xl px-4 py-2 bg-white"
         data-testid="client-type"
       >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { createAndSendInvoice } from '../actions';
@@ -34,21 +34,22 @@ export default function NewInvoicePage() {
 
       // Vehicle selection drives client identification — pick the car, the
       // client is looked up from vehicles.client_id automatically.
-      let vhQuery = supabase.from('vehicles').select('id, make, model, license_plate, vin, client_id, clients(id, name)').order('created_at', { ascending: false });
+      let vhQuery = supabase.from('vehicles').select('id, make, model, license_plate, client_id, clients(id, name)').order('created_at', { ascending: false });
       if (tenantId) vhQuery = vhQuery.eq('tenant_id', tenantId);
-      const { data: vh } = await vhQuery;
-      if (vh) setVehicles(vh);
 
       let svQuery = supabase.from('services').select('*').eq('is_active', true).order('name');
       if (tenantId) svQuery = svQuery.eq('tenant_id', tenantId);
-      const { data: sv } = await svQuery;
-      if (sv) setServices(sv);
 
-      // Load inventory for UI stock guards on manual parts
-      if (tenantId) {
-        const { data: invs } = await supabase.from('part_inventory').select('*').eq('tenant_id', tenantId);
-        if (invs) setInventory(invs);
-      }
+      // Independent queries — run concurrently instead of one round-trip after another.
+      const [{ data: vh }, { data: sv }, { data: invs }] = await Promise.all([
+        vhQuery,
+        svQuery,
+        // Only the fields the stock guard on manual parts actually reads.
+        tenantId ? supabase.from('part_inventory').select('name, current_stock').eq('tenant_id', tenantId) : Promise.resolve({ data: null }),
+      ]);
+      if (vh) setVehicles(vh);
+      if (sv) setServices(sv);
+      if (invs) setInventory(invs);
     }
     loadInitial();
   }, []);
@@ -62,22 +63,22 @@ export default function NewInvoicePage() {
     }
 
     async function loadVehicleData() {
-      // Load parts used on this specific vehicle
-      const { data: prts } = await supabase
-        .from('parts')
-        .select('*')
-        .eq('vehicle_id', selectedVehicleId)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // Parts and interventions for this vehicle are independent queries — run concurrently.
+      const [{ data: prts }, { data: ints }] = await Promise.all([
+        supabase
+          .from('parts')
+          .select('*')
+          .eq('vehicle_id', selectedVehicleId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('interventions')
+          .select('id, description, performed_at, vehicles(make, model)')
+          .eq('vehicle_id', selectedVehicleId)
+          .order('performed_at', { ascending: false })
+          .limit(5),
+      ]);
       if (prts) setClientParts(prts);
-
-      // Load interventions for this vehicle (to auto-link parts)
-      const { data: ints } = await supabase
-        .from('interventions')
-        .select('id, description, performed_at, vehicles(make, model)')
-        .eq('vehicle_id', selectedVehicleId)
-        .order('performed_at', { ascending: false })
-        .limit(5);
       if (ints) setClientInterventions(ints);
     }
     loadVehicleData();
@@ -105,12 +106,22 @@ export default function NewInvoicePage() {
 
   // Stock lookup for manual parts (match by name only, since manual entry in invoice
   // lacks distributor). The same name can have multiple part_inventory rows — one per
-  // distributor — so sum across all of them rather than matching a single row.
+  // distributor — so sum across all of them rather than matching a single row. Built
+  // once per inventory change instead of re-scanning the full list on every part/keystroke.
+  const stockByName = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const i of inventory as any[]) {
+      const key = i.name?.toLowerCase();
+      if (!key) continue;
+      map.set(key, (map.get(key) || 0) + (Number(i.current_stock) || 0));
+    }
+    return map;
+  }, [inventory]);
+
   function getStockForPartName(name: string): number {
     if (!name) return Infinity;
-    const matches = inventory.filter((i: any) => i.name?.toLowerCase() === name.toLowerCase());
-    if (matches.length === 0) return Infinity;
-    return matches.reduce((sum: number, i: any) => sum + (Number(i.current_stock) || 0), 0);
+    const total = stockByName.get(name.toLowerCase());
+    return total === undefined ? Infinity : total;
   }
 
   function hasInsufficientManualStock(): boolean {
