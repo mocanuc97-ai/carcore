@@ -308,22 +308,23 @@ export default function NewInvoicePage() {
           </label>
           <div className="space-y-2">
             {manualParts.map((p, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2">
+              <div key={i} className="grid grid-cols-2 sm:grid-cols-12 gap-2">
                 <input
                   name="part_name"
                   placeholder="Nume piesă"
                   value={p.name}
                   onChange={(e) => updateManualPart(i, 'name', e.target.value)}
-                  className="col-span-4 border rounded-xl px-3 py-2 text-sm"
+                  className="col-span-2 sm:col-span-4 border rounded-xl px-3 py-2 text-sm min-w-0"
                 />
                 <input
                   name="part_qty"
                   type="number"
                   min="0.01"
                   step="0.01"
+                  placeholder="Cant."
                   value={p.qty}
                   onChange={(e) => updateManualPart(i, 'qty', e.target.value)}
-                  className="col-span-2 border rounded-xl px-3 py-2 text-sm"
+                  className="col-span-1 sm:col-span-2 border rounded-xl px-3 py-2 text-sm min-w-0"
                   required
                 />
                 <input
@@ -334,7 +335,7 @@ export default function NewInvoicePage() {
                   placeholder="Cost ach."
                   value={p.cost || 0}
                   onChange={(e) => updateManualPart(i, 'cost', e.target.value)}
-                  className="col-span-3 border rounded-xl px-3 py-2 text-sm"
+                  className="col-span-1 sm:col-span-3 border rounded-xl px-3 py-2 text-sm min-w-0"
                 />
                 <input
                   name="part_price"
@@ -344,7 +345,7 @@ export default function NewInvoicePage() {
                   placeholder="Preț vânz."
                   value={p.price}
                   onChange={(e) => updateManualPart(i, 'price', e.target.value)}
-                  className="col-span-3 border rounded-xl px-3 py-2 text-sm"
+                  className="col-span-2 sm:col-span-3 border rounded-xl px-3 py-2 text-sm min-w-0"
                   required
                 />
               </div>
