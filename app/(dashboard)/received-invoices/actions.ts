@@ -140,14 +140,13 @@ export async function processReceivedInvoice(invoiceId: string, markupPercentRaw
     .eq('id', invoiceId)
     .eq('tenant_id', tenantId)
     .in('status', ['new', 'error'])
-    .select('id, number, external_id, supplier_id')
+    .select('id, number, external_id, suppliers(name)')
     .maybeSingle();
 
   if (claimErr) return { error: 'Eroare la înregistrare: ' + claimErr.message };
   if (!claimed) return { error: 'Factura a fost deja înregistrată în stoc (sau se procesează chiar acum)' };
 
-  const { data: supplier } = await supabase.from('suppliers').select('name').eq('id', claimed.supplier_id).maybeSingle();
-  const distributorName = supplier?.name || 'Furnizor necunoscut';
+  const distributorName = (claimed as any).suppliers?.name || 'Furnizor necunoscut';
 
   const { data: items } = await supabase
     .from('received_invoice_items')
@@ -158,6 +157,16 @@ export async function processReceivedInvoice(invoiceId: string, markupPercentRaw
     revalidatePath('/received-invoices');
     return { success: true };
   }
+
+  // Errors here were previously ignored, letting the invoice reach
+  // 'processed' while the actual stock/purchase write silently failed (found
+  // via QA testing with an extreme markup causing a numeric overflow on
+  // insert). Mark the invoice 'error' instead so it's visibly wrong and
+  // retriable, rather than a false "success".
+  const failItem = async (description: string, reason: string) => {
+    await supabase.from('received_invoices').update({ status: 'error' }).eq('id', invoiceId);
+    return { error: `Eroare la ${reason} pentru "${description}". Factura a fost marcată cu eroare — poți reîncerca.` };
+  };
 
   for (const item of items) {
     // Idempotent retry: if a previous attempt failed partway through (see the
@@ -195,15 +204,7 @@ export async function processReceivedInvoice(invoiceId: string, markupPercentRaw
       .select('id')
       .single();
 
-    // Errors here were previously ignored, letting the invoice reach
-    // 'processed' while the actual stock/purchase write silently failed
-    // (found via QA testing with an extreme markup causing a numeric
-    // overflow on insert). Mark the invoice 'error' instead so it's visibly
-    // wrong and retriable, rather than a false "success".
-    if (invUpsertErr || !upsertedInv) {
-      await supabase.from('received_invoices').update({ status: 'error' }).eq('id', invoiceId);
-      return { error: `Eroare la actualizarea stocului pentru "${item.description}". Factura a fost marcată cu eroare — poți reîncerca.` };
-    }
+    if (invUpsertErr || !upsertedInv) return failItem(item.description, 'actualizarea stocului');
 
     const { error: partsInsertErr } = await supabase.from('parts').insert({
       tenant_id: tenantId,
@@ -215,10 +216,7 @@ export async function processReceivedInvoice(invoiceId: string, markupPercentRaw
       notes: `Achiziție automată din factură primită ${claimed.number || claimed.external_id}`,
     });
 
-    if (partsInsertErr) {
-      await supabase.from('received_invoices').update({ status: 'error' }).eq('id', invoiceId);
-      return { error: `Eroare la înregistrarea achiziției pentru "${item.description}". Factura a fost marcată cu eroare — poți reîncerca.` };
-    }
+    if (partsInsertErr) return failItem(item.description, 'înregistrarea achiziției');
 
     await supabase.from('received_invoice_items').update({ part_inventory_id: upsertedInv.id }).eq('id', item.id);
   }

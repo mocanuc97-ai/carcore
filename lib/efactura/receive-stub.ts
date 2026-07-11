@@ -60,17 +60,14 @@ function pick<T>(arr: T[]): T {
 export function simulateIncomingEfacturaMessage(): SimulatedReceivedInvoice {
   const supplier = pick(SUPPLIERS);
   const itemCount = randomInt(2, 4);
-  const items: ReceivedInvoiceItemInput[] = [];
-  const usedNames = new Set<string>();
-
-  while (items.length < itemCount) {
-    const part = pick(PART_CATALOG);
-    if (usedNames.has(part.name)) continue;
-    usedNames.add(part.name);
-    const quantity = randomInt(1, 10);
-    const unit_price = randomInt(part.priceRange[0], part.priceRange[1]);
-    items.push({ description: part.name, quantity, unit_price });
-  }
+  const items: ReceivedInvoiceItemInput[] = [...PART_CATALOG]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, itemCount)
+    .map((part) => ({
+      description: part.name,
+      quantity: randomInt(1, 10),
+      unit_price: randomInt(part.priceRange[0], part.priceRange[1]),
+    }));
 
   const total = items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
   const now = Date.now();
