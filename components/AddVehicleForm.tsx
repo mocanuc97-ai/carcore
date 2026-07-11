@@ -19,7 +19,7 @@ export default function AddVehicleForm({ clientId }: { clientId: string }) {
   };
 
   return (
-    <form ref={formRef} action={handleSubmit} className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <form ref={formRef} action={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
       <input name="make" placeholder="Marcă" required className="border rounded-xl px-4 py-2" />
       <input name="model" placeholder="Model" required className="border rounded-xl px-4 py-2" />
       <input name="vin" placeholder="Serie caroserie (VIN)" className="border rounded-xl px-4 py-2" />

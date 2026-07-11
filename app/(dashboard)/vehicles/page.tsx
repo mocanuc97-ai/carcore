@@ -60,7 +60,7 @@ export default async function VehiclesPage() {
 
       <div className="bg-white rounded-2xl p-6 mb-8">
         <h3 className="font-medium mb-4">Adaugă mașină</h3>
-        <form action={addVehicle} className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <form action={addVehicle} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <select name="client_id" required className="border rounded-xl px-4 py-2">
             <option value="">Selectează client</option>
             {clients?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -71,7 +71,7 @@ export default async function VehiclesPage() {
           <input name="license_plate" placeholder="Număr înmatriculare" className="border rounded-xl px-4 py-2" />
           <input name="year" type="number" placeholder="An" min={1950} max={new Date().getFullYear() + 1} className="border rounded-xl px-4 py-2" />
           <input name="mileage" type="number" placeholder="Km" min={0} max={2000000} className="border rounded-xl px-4 py-2" />
-          <button className="bg-black text-white rounded-xl col-span-2 md:col-span-1">Adaugă mașină</button>
+          <button className="bg-black text-white rounded-xl col-span-1 md:col-span-1">Adaugă mașină</button>
         </form>
       </div>
 
