@@ -87,9 +87,12 @@ export const invoicePartItemSchema = z.object({
 });
 
 // Labor ("manoperă") line item on an invoice — hours worked at a given rate.
+// Bounded for the same reason as markupPercentSchema: an unbounded value
+// (found via QA testing: "99999999" hours passed client-side with no error
+// and produced a 14+ billion RON total) overflows numeric(10,2) on `total`.
 export const invoiceLaborItemSchema = z.object({
-  hours: positiveNumber,
-  rate: positiveNumber,
+  hours: positiveNumber.max(1000, 'Ore manoperă prea multe (maxim 1000)'),
+  rate: positiveNumber.max(100000, 'Tarif manoperă prea mare (maxim 100000 RON/oră)'),
 });
 
 // Intervention catalog entry (editable per-tenant quick-pick list)
@@ -151,7 +154,11 @@ export function parseAndValidateInvoiceLabor(laborHours: string[], laborRates: s
 
   for (let i = 0; i < laborHours.length; i++) {
     const hoursRaw = (laborHours[i] || '').trim();
-    if (!hoursRaw) continue;
+    // An empty or zero row means "not filled in" — skip it silently like the
+    // parts parser skips rows with no name, rather than letting it reach
+    // validation (which would reject 0 as non-positive and abort the whole
+    // invoice submission over an unused labor row).
+    if (!hoursRaw || Number(hoursRaw) === 0) continue;
 
     const parseResult = invoiceLaborItemSchema.safeParse({
       hours: hoursRaw,

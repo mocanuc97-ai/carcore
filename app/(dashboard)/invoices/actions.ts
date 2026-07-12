@@ -285,12 +285,15 @@ export async function createAndSendInvoice(formData: FormData) {
         address: tenant.address || undefined,
         logo_url: tenant.logo_url || undefined,
       },
-      items: [...serviceItems, ...partItems, ...laborItems].map((i: any) => ({
-        description: i.description,
-        quantity: Number(i.quantity),
-        unit_price: Number(i.unit_price),
-        total: Number(i.total),
-      })),
+      // partItems don't carry `cost` themselves (invoice_items has no such
+      // column), so cost/margin for the PDF must come from validPartLines —
+      // matched by array position since partItems is mapped 1:1 from it —
+      // rather than from the DB-insert-shaped partItems array itself.
+      items: [
+        ...serviceItems.map((i: any) => ({ description: i.description, quantity: Number(i.quantity), unit_price: Number(i.unit_price), total: Number(i.total) })),
+        ...partItems.map((i: any, idx: number) => ({ description: i.description, quantity: Number(i.quantity), unit_price: Number(i.unit_price), total: Number(i.total), cost: Number(validPartLines[idx]?.cost) || 0 })),
+        ...laborItems.map((i: any) => ({ description: i.description, quantity: Number(i.quantity), unit_price: Number(i.unit_price), total: Number(i.total) })),
+      ],
     });
   } catch (err) {
     console.error('PDF generation failed:', err);
