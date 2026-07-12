@@ -35,6 +35,7 @@ export default function SettingsClient({ tenant: initialTenant, anafConnection: 
       email: formData.get('email') as string,
       address: formData.get('address') as string,
       default_parts_markup_percent: Number(formData.get('default_parts_markup_percent')) || 0,
+      labor_rate_per_hour: Number(formData.get('labor_rate_per_hour')) || 0,
     };
 
     const { error } = await supabase
@@ -121,6 +122,20 @@ export default function SettingsClient({ tenant: initialTenant, anafConnection: 
             />
             <p className="text-xs text-zinc-500 mt-1">
               Folosit ca valoare implicită la înregistrarea în stoc a pieselor din facturile primite de la furnizori.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Tarif manoperă (RON/oră)</label>
+            <input
+              name="labor_rate_per_hour"
+              type="number"
+              min={0}
+              step="0.01"
+              defaultValue={tenant.labor_rate_per_hour ?? 150}
+              className="w-full border rounded-xl px-4 py-2"
+            />
+            <p className="text-xs text-zinc-500 mt-1">
+              Punctul de manoperă prestabilit — precompletează linia de manoperă la crearea unei facturi.
             </p>
           </div>
 

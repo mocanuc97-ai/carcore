@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { addPartToIntervention } from './add-part-action';
+import { addInterventionCatalogEntry, deleteInterventionCatalogEntry } from './catalog-actions';
 
 export default function InterventionsPage() {
   const [description, setDescription] = useState('');
@@ -14,6 +15,9 @@ export default function InterventionsPage() {
   const [interventions, setInterventions] = useState<any[]>([]);
   const [parts, setParts] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
+  const [catalog, setCatalog] = useState<any[]>([]);
+  const [newCatalogName, setNewCatalogName] = useState('');
+  const [catalogLoading, setCatalogLoading] = useState(false);
 
   const supabase = createClient();
 
@@ -76,7 +80,43 @@ export default function InterventionsPage() {
         .eq('tenant_id', tenantId);
       if (invData) setInventory(invData);
     }
+
+    // Editable catalog of common intervention types — most-used first (sort_order, then name)
+    if (tenantId) {
+      const { data: catData } = await supabase
+        .from('intervention_catalog')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+      if (catData) setCatalog(catData);
+    }
   }
+
+  const handleAddCatalogEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatalogName.trim()) return;
+    setCatalogLoading(true);
+    const formData = new FormData();
+    formData.append('name', newCatalogName.trim());
+    const result = await addInterventionCatalogEntry(formData);
+    if (result?.error) {
+      toast.error(result.error);
+    } else {
+      setNewCatalogName('');
+      await loadData();
+    }
+    setCatalogLoading(false);
+  };
+
+  const handleDeleteCatalogEntry = async (id: string) => {
+    const result = await deleteInterventionCatalogEntry(id);
+    if (result?.error) {
+      toast.error(result.error);
+    } else {
+      await loadData();
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -182,53 +222,102 @@ export default function InterventionsPage() {
 
       {/* Add form */}
       <div className="bg-white p-6 rounded-2xl mb-8">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)} required className="w-full border rounded-xl px-4 py-2">
-            <option value="">Alege mașina</option>
-            {vehicles.map((v: any) => (
-              <option key={v.id} value={v.id}>{v.clients?.name} — {v.make} {v.model}</option>
-            ))}
-          </select>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <form onSubmit={handleSubmit} className="lg:col-span-2 space-y-4">
+            <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)} required className="w-full border rounded-xl px-4 py-2">
+              <option value="">Alege mașina</option>
+              {vehicles.map((v: any) => (
+                <option key={v.id} value={v.id}>{v.clients?.name} — {v.make} {v.model}</option>
+              ))}
+            </select>
 
-          <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Descriere intervenție..." required className="w-full border rounded-xl p-4 h-24" />
+            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Descriere intervenție..." required className="w-full border rounded-xl p-4 h-24" />
 
-          <div>
-            <label className="block text-sm mb-1">Poze (max 6)</label>
-            <input type="file" multiple accept="image/*" onChange={(e) => {
-              const selectedAll = Array.from(e.target.files || []);
-              if (selectedAll.length > 6) {
-                toast.error('Maxim 6 poze permise. Se vor folosi primele 6.');
-              }
-              const selected = selectedAll.slice(0, 6);
-              setFiles(selected);
-            }} />
-            <p className="text-xs text-zinc-500 mt-1">{files.length} fișiere selectate (max 6)</p>
-            {files.length > 0 && (
-              <div className="mt-2 flex gap-2 flex-wrap">
-                {files.map((f, i) => (
-                  <div key={i} className="relative group">
-                    <img 
-                      src={URL.createObjectURL(f)} 
-                      alt={`preview ${i}`} 
-                      className="w-16 h-16 object-cover rounded border" 
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => setFiles(files.filter((_, idx) => idx !== i))}
-                      className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center opacity-80 hover:opacity-100"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div>
+              <label className="block text-sm mb-1">Poze (max 6)</label>
+              <input type="file" multiple accept="image/*" onChange={(e) => {
+                const selectedAll = Array.from(e.target.files || []);
+                if (selectedAll.length > 6) {
+                  toast.error('Maxim 6 poze permise. Se vor folosi primele 6.');
+                }
+                const selected = selectedAll.slice(0, 6);
+                setFiles(selected);
+              }} />
+              <p className="text-xs text-zinc-500 mt-1">{files.length} fișiere selectate (max 6)</p>
+              {files.length > 0 && (
+                <div className="mt-2 flex gap-2 flex-wrap">
+                  {files.map((f, i) => (
+                    <div key={i} className="relative group">
+                      <img
+                        src={URL.createObjectURL(f)}
+                        alt={`preview ${i}`}
+                        className="w-16 h-16 object-cover rounded border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFiles(files.filter((_, idx) => idx !== i))}
+                        className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center opacity-80 hover:opacity-100"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button type="submit" disabled={Boolean(loading || !vehicleId || !description)} className="bg-black text-white px-6 py-2 rounded-xl disabled:opacity-50">
+              {loading ? 'Se salvează...' : 'Salvează intervenție + poze'}
+            </button>
+          </form>
+
+          {/* Editable catalog of common intervention types — most-used first, click to prefill the description above */}
+          <div className="lg:col-span-1 border-t lg:border-t-0 lg:border-l pt-6 lg:pt-0 lg:pl-6">
+            <h3 className="text-sm font-medium mb-1">Intervenții uzuale</h3>
+            <p className="text-xs text-zinc-500 mb-3">Clic pentru a completa descrierea (rămâne editabilă).</p>
+            <div className="max-h-64 overflow-y-auto space-y-1 mb-4" data-testid="intervention-catalog-list">
+              {catalog.map((c: any) => (
+                <div key={c.id} className="flex items-center justify-between gap-1 group">
+                  <button
+                    type="button"
+                    onClick={() => setDescription(c.name)}
+                    className="flex-1 text-left text-sm px-2 py-1.5 rounded-lg hover:bg-zinc-100 truncate"
+                    data-testid={`catalog-pick-${c.id}`}
+                  >
+                    {c.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCatalogEntry(c.id)}
+                    className="text-zinc-300 hover:text-red-600 text-xs px-1.5 opacity-0 group-hover:opacity-100"
+                    title="Șterge din listă"
+                    data-testid={`catalog-delete-${c.id}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {catalog.length === 0 && <p className="text-xs text-zinc-400">Nicio intervenție în listă.</p>}
+            </div>
+            <form onSubmit={handleAddCatalogEntry} className="flex gap-2">
+              <input
+                value={newCatalogName}
+                onChange={(e) => setNewCatalogName(e.target.value)}
+                placeholder="Tip nou..."
+                className="flex-1 border rounded-lg px-2 py-1.5 text-sm min-w-0"
+                data-testid="catalog-new-input"
+              />
+              <button
+                type="submit"
+                disabled={Boolean(catalogLoading || !newCatalogName.trim())}
+                className="text-sm bg-zinc-900 text-white px-3 rounded-lg disabled:opacity-50"
+                data-testid="catalog-add-button"
+              >
+                +
+              </button>
+            </form>
           </div>
-
-          <button type="submit" disabled={Boolean(loading || !vehicleId || !description)} className="bg-black text-white px-6 py-2 rounded-xl disabled:opacity-50">
-            {loading ? 'Se salvează...' : 'Salvează intervenție + poze'}
-          </button>
-        </form>
+        </div>
       </div>
 
       {/* Add Purchased Parts from Distributors - with UI stock guard */}

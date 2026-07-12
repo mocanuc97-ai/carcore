@@ -86,6 +86,17 @@ export const invoicePartItemSchema = z.object({
   cost: nonNegativeNumber,
 });
 
+// Labor ("manoperă") line item on an invoice — hours worked at a given rate.
+export const invoiceLaborItemSchema = z.object({
+  hours: positiveNumber,
+  rate: positiveNumber,
+});
+
+// Intervention catalog entry (editable per-tenant quick-pick list)
+export const interventionCatalogSchema = z.object({
+  name: z.string().trim().min(1, 'Numele este obligatoriu').max(200, 'Nume prea lung'),
+});
+
 // For invoice creation validation
 export const createInvoiceSchema = z.object({
   client_id: z.string().min(1, 'Clientul este obligatoriu'),
@@ -127,6 +138,37 @@ export function parseAndValidateInvoiceParts(
       unit_price: price,
       cost,
       total: qty * price,
+    });
+  }
+
+  return { items, errors };
+}
+
+// Helper to validate form data entries for invoice labor ("manoperă") lines
+export function parseAndValidateInvoiceLabor(laborHours: string[], laborRates: string[]) {
+  const items: Array<{ description: string; quantity: number; unit_price: number; total: number }> = [];
+  const errors: string[] = [];
+
+  for (let i = 0; i < laborHours.length; i++) {
+    const hoursRaw = (laborHours[i] || '').trim();
+    if (!hoursRaw) continue;
+
+    const parseResult = invoiceLaborItemSchema.safeParse({
+      hours: hoursRaw,
+      rate: laborRates[i],
+    });
+
+    if (!parseResult.success) {
+      errors.push(`Manoperă: ${parseResult.error.issues.map((e) => e.message).join(', ')}`);
+      continue;
+    }
+
+    const { hours, rate } = parseResult.data;
+    items.push({
+      description: `Manoperă (${hours} h)`,
+      quantity: hours,
+      unit_price: rate,
+      total: Math.round(hours * rate * 100) / 100,
     });
   }
 
