@@ -14,8 +14,11 @@ export default function NewInvoicePage() {
   const [selectedInterventionId, setSelectedInterventionId] = useState('');
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [manualParts, setManualParts] = useState([{ name: '', qty: 1, price: 1, cost: 0 }]);
+  const [manualLabor, setManualLabor] = useState<{ hours: number | ''; rate: number }[]>([]);
+  const [laborRateDefault, setLaborRateDefault] = useState(150);
   const [loading, setLoading] = useState(false);
   const [inventory, setInventory] = useState<any[]>([]);
+  const [activeSuggestionRow, setActiveSuggestionRow] = useState<number | null>(null);
 
   const supabase = createClient();
 
@@ -41,15 +44,18 @@ export default function NewInvoicePage() {
       if (tenantId) svQuery = svQuery.eq('tenant_id', tenantId);
 
       // Independent queries — run concurrently instead of one round-trip after another.
-      const [{ data: vh }, { data: sv }, { data: invs }] = await Promise.all([
+      const [{ data: vh }, { data: sv }, { data: invs }, tenantResult] = await Promise.all([
         vhQuery,
         svQuery,
-        // Only the fields the stock guard on manual parts actually reads.
-        tenantId ? supabase.from('part_inventory').select('name, current_stock').eq('tenant_id', tenantId) : Promise.resolve({ data: null }),
+        // Name/stock for the manual-part stock guard, purchase price to prefill cost on autocomplete pick.
+        tenantId ? supabase.from('part_inventory').select('name, current_stock, last_purchase_price').eq('tenant_id', tenantId) : Promise.resolve({ data: null }),
+        tenantId ? supabase.from('tenants').select('labor_rate_per_hour').eq('id', tenantId).single() : Promise.resolve({ data: null }),
       ]);
       if (vh) setVehicles(vh);
       if (sv) setServices(sv);
       if (invs) setInventory(invs);
+      const rate = Number((tenantResult as any)?.data?.labor_rate_per_hour);
+      if (rate > 0) setLaborRateDefault(rate);
     }
     loadInitial();
   }, []);
@@ -99,6 +105,61 @@ export default function NewInvoicePage() {
     }
     (updated[index] as any)[field] = v;
     setManualParts(updated);
+  };
+
+  // Part-name autocomplete: unique inventory names matching the typed query,
+  // with total stock summed across distributors and the most recent purchase
+  // price so picking a suggestion can prefill cost automatically.
+  const inventoryByName = useMemo(() => {
+    const map = new Map<string, { name: string; stock: number; lastPrice: number }>();
+    for (const i of inventory as any[]) {
+      if (!i.name) continue;
+      const key = i.name.toLowerCase();
+      const prev = map.get(key);
+      map.set(key, {
+        name: i.name,
+        stock: (prev?.stock || 0) + (Number(i.current_stock) || 0),
+        lastPrice: Number(i.last_purchase_price) || prev?.lastPrice || 0,
+      });
+    }
+    return map;
+  }, [inventory]);
+
+  function getPartSuggestions(query: string) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return Array.from(inventoryByName.values())
+      .filter((i) => i.name.toLowerCase().includes(q))
+      .slice(0, 8);
+  }
+
+  function selectPartSuggestion(index: number, suggestion: { name: string; lastPrice: number }) {
+    const updated = [...manualParts];
+    updated[index] = {
+      ...updated[index],
+      name: suggestion.name,
+      cost: suggestion.lastPrice || updated[index].cost,
+    };
+    setManualParts(updated);
+    setActiveSuggestionRow(null);
+  }
+
+  const addManualLabor = () => {
+    setManualLabor([...manualLabor, { hours: '', rate: laborRateDefault }]);
+  };
+
+  const updateManualLabor = (index: number, field: 'hours' | 'rate', value: string) => {
+    const updated = [...manualLabor];
+    if (field === 'hours') {
+      updated[index] = { ...updated[index], hours: value === '' ? '' : Math.max(0, parseFloat(value) || 0) };
+    } else {
+      updated[index] = { ...updated[index], rate: Math.max(0, parseFloat(value) || 0) };
+    }
+    setManualLabor(updated);
+  };
+
+  const removeManualLabor = (index: number) => {
+    setManualLabor(manualLabor.filter((_, i) => i !== index));
   };
 
   // Extend state type
@@ -157,10 +218,13 @@ export default function NewInvoicePage() {
       }
     });
 
-    const hasParts = validManual.length > 0 || checkedClientParts.length > 0 || (selectedInterventionId && true); // intervention may bring parts
+    const validLabor = manualLabor.filter(l => Number(l.hours) > 0 && Number(l.rate) > 0);
 
-    if (!hasServices && !hasParts) {
-      toast.error('Trebuie să selectezi cel puțin un serviciu sau o piesă cu preț/cantitate pozitivă');
+    const hasParts = validManual.length > 0 || checkedClientParts.length > 0 || (selectedInterventionId && true); // intervention may bring parts
+    const hasLabor = validLabor.length > 0;
+
+    if (!hasServices && !hasParts && !hasLabor) {
+      toast.error('Trebuie să selectezi cel puțin un serviciu, o piesă sau manoperă cu preț/cantitate pozitivă');
       setLoading(false);
       return;
     }
@@ -195,6 +259,11 @@ export default function NewInvoicePage() {
       formData.append('hist_part_qty', p.quantity.toString());
       formData.append('hist_part_cost', (p.purchase_price || 0).toString());
       formData.append('hist_part_price', p.selling_price.toString());
+    });
+
+    validLabor.forEach(l => {
+      formData.append('labor_hours', String(l.hours));
+      formData.append('labor_rate', String(l.rate));
     });
 
     try {
@@ -309,13 +378,41 @@ export default function NewInvoicePage() {
           <div className="space-y-2">
             {manualParts.map((p, i) => (
               <div key={i} className="grid grid-cols-2 sm:grid-cols-12 gap-2">
-                <input
-                  name="part_name"
-                  placeholder="Nume piesă"
-                  value={p.name}
-                  onChange={(e) => updateManualPart(i, 'name', e.target.value)}
-                  className="col-span-2 sm:col-span-4 border rounded-xl px-3 py-2 text-sm min-w-0"
-                />
+                <div className="col-span-2 sm:col-span-4 relative">
+                  <input
+                    name="part_name"
+                    placeholder="Nume piesă"
+                    value={p.name}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      updateManualPart(i, 'name', e.target.value);
+                      setActiveSuggestionRow(i);
+                    }}
+                    onFocus={() => setActiveSuggestionRow(i)}
+                    onBlur={() => setTimeout(() => setActiveSuggestionRow((cur) => (cur === i ? null : cur)), 150)}
+                    className="w-full border rounded-xl px-3 py-2 text-sm min-w-0"
+                    data-testid={`part-name-input-${i}`}
+                  />
+                  {activeSuggestionRow === i && getPartSuggestions(p.name).length > 0 && (
+                    <div
+                      className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border rounded-xl shadow-lg max-h-48 overflow-auto"
+                      data-testid={`part-suggestions-${i}`}
+                    >
+                      {getPartSuggestions(p.name).map((s) => (
+                        <button
+                          type="button"
+                          key={s.name}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => selectPartSuggestion(i, s)}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 flex justify-between gap-2"
+                        >
+                          <span>{s.name}</span>
+                          <span className="text-zinc-400 shrink-0">stoc: {s.stock}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <input
                   name="part_qty"
                   type="number"
@@ -351,12 +448,54 @@ export default function NewInvoicePage() {
               </div>
             ))}
           </div>
+          <p className="text-xs text-zinc-500 mt-1">Scrie un caracter în „Nume piesă" pentru sugestii din stoc — clic pe o sugestie completează automat costul de achiziție.</p>
           {manualParts.some(p => p.name.trim()) && (
             <div className="text-xs text-zinc-500">
               Stoc verificat pentru piese manuale (doar acestea deduc stoc la facturare).
               {hasInsufficientManualStock() && <span className="text-red-600 ml-1 font-medium">⚠️ O parte manuală depășește stocul - buton dezactivat.</span>}
             </div>
           )}
+        </div>
+
+        {/* Manoperă (labor) — quick-add priced from the tenant's standard labor rate */}
+        <div>
+          <label className="block text-sm font-medium mb-2 flex justify-between">
+            <span>Manoperă</span>
+            <button type="button" onClick={addManualLabor} className="text-xs text-blue-600" data-testid="add-labor-row">+ Adaugă manoperă</button>
+          </label>
+          {manualLabor.length === 0 && (
+            <p className="text-xs text-zinc-500">Tarif standard: {laborRateDefault} RON/oră. Adaugă un rând pentru a factura ore de manoperă.</p>
+          )}
+          <div className="space-y-2">
+            {manualLabor.map((l, i) => (
+              <div key={i} className="grid grid-cols-3 gap-2 items-center">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.25"
+                  placeholder="Ore"
+                  value={l.hours}
+                  onChange={(e) => updateManualLabor(i, 'hours', e.target.value)}
+                  className="border rounded-xl px-3 py-2 text-sm min-w-0"
+                  data-testid={`labor-hours-${i}`}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="RON/oră"
+                  value={l.rate}
+                  onChange={(e) => updateManualLabor(i, 'rate', e.target.value)}
+                  className="border rounded-xl px-3 py-2 text-sm min-w-0"
+                  data-testid={`labor-rate-${i}`}
+                />
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{(Number(l.hours || 0) * Number(l.rate || 0)).toFixed(2)} RON</span>
+                  <button type="button" onClick={() => removeManualLabor(i)} className="text-zinc-400 hover:text-red-600 text-xs px-2">×</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <button
@@ -368,7 +507,7 @@ export default function NewInvoicePage() {
         </button>
 
         <p className="text-xs text-center text-zinc-500">
-          Servicii + piese vor fi incluse. Piesele cumpărate de la distribuitori apar pe factură.
+          Servicii + piese + manoperă vor fi incluse. Piesele cumpărate de la distribuitori apar pe factură.
         </p>
       </form>
     </div>

@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { generateInvoicePDF } from '@/lib/invoice/generate';
 import { getResendClient } from '@/lib/resend/client';
 import { revalidatePath } from 'next/cache';
-import { parseAndValidateInvoiceParts } from '@/lib/validation';
+import { parseAndValidateInvoiceParts, parseAndValidateInvoiceLabor } from '@/lib/validation';
 
 export async function createAndSendInvoice(formData: FormData) {
   const supabase = await createClient();
@@ -77,6 +77,14 @@ export async function createAndSendInvoice(formData: FormData) {
     throw new Error('Eroare validare piese istorice: ' + histErrors.join(' | '));
   }
 
+  // Labor ("manoperă") lines — hours x rate, no stock/inventory involvement
+  const laborHours = formData.getAll('labor_hours') as string[];
+  const laborRates = formData.getAll('labor_rate') as string[];
+  const { items: laborLines, errors: laborErrors } = parseAndValidateInvoiceLabor(laborHours, laborRates);
+  if (laborErrors.length > 0) {
+    throw new Error('Eroare validare manoperă: ' + laborErrors.join(' | '));
+  }
+
   // Fetch client
   const { data: client } = await supabase
     .from('clients')
@@ -125,26 +133,29 @@ export async function createAndSendInvoice(formData: FormData) {
     }
   }
 
-  // Ensure at least one service or part (critical for invoice creation)
+  // Ensure at least one service, part, or labor line (critical for invoice creation)
   const hasServices = services && services.length > 0;
   const hasParts = partLines.length > 0;
-  if (!hasServices && !hasParts) {
-    throw new Error('Trebuie să selectezi cel puțin un serviciu sau o piesă');
+  const hasLabor = laborLines.length > 0;
+  if (!hasServices && !hasParts && !hasLabor) {
+    throw new Error('Trebuie să selectezi cel puțin un serviciu, o piesă sau manoperă');
   }
 
   // Additional guard: filter out any invalid priced items that might sneak in
   const validPartLines = partLines.filter((p: any) => Number(p.quantity) > 0 && Number(p.unit_price) > 0);
+  const validLaborLines = laborLines.filter((l) => Number(l.quantity) > 0 && Number(l.unit_price) > 0);
 
   // Filter services with valid positive price too
   const validServices = (services || []).filter((s: any) => Number(s.price) > 0);
 
   const servicesTotal = validServices.reduce((sum, s) => sum + Number(s.price), 0);
   const partsTotal = validPartLines.reduce((sum, p) => sum + p.total, 0);
-  const total = servicesTotal + partsTotal;
+  const laborTotal = validLaborLines.reduce((sum, l) => sum + l.total, 0);
+  const total = servicesTotal + partsTotal + laborTotal;
 
   // Re-check after filtering (in case only invalid items were sent)
-  if (validServices.length === 0 && validPartLines.length === 0) {
-    throw new Error('Trebuie să selectezi cel puțin un serviciu sau o piesă cu preț/cantitate pozitivă');
+  if (validServices.length === 0 && validPartLines.length === 0 && validLaborLines.length === 0) {
+    throw new Error('Trebuie să selectezi cel puțin un serviciu, o piesă sau manoperă cu preț/cantitate pozitivă');
   }
 
   // Create invoice
@@ -167,7 +178,7 @@ export async function createAndSendInvoice(formData: FormData) {
     throw new Error(invError?.message || 'Eroare la crearea facturii');
   }
 
-  // Create invoice items (services + parts)
+  // Create invoice items (services + parts + labor)
   const serviceItems = validServices.map((s: any) => ({
     invoice_id: invoice.id,
     service_id: s.id,
@@ -177,17 +188,34 @@ export async function createAndSendInvoice(formData: FormData) {
     total: s.price,
   }));
 
+  // invoice_items has no `cost` column (cost/margin is tracked separately via
+  // parts/part_inventory) — this previously included one anyway, which made
+  // the whole insert below fail silently on ANY invoice with parts, since a
+  // batch insert with an unknown column is rejected atomically and the error
+  // was never checked (found while adding labor line items to this action).
   const partItems = validPartLines.map((p: any) => ({
     invoice_id: invoice.id,
     service_id: null,
     description: p.description,
     quantity: p.quantity,
     unit_price: p.unit_price,
-    cost: p.cost,
     total: p.total,
   }));
 
-  await supabase.from('invoice_items').insert([...serviceItems, ...partItems]);
+  const laborItems = validLaborLines.map((l) => ({
+    invoice_id: invoice.id,
+    service_id: null,
+    description: l.description,
+    quantity: l.quantity,
+    unit_price: l.unit_price,
+    total: l.total,
+  }));
+
+  const { error: itemsError } = await supabase.from('invoice_items').insert([...serviceItems, ...partItems, ...laborItems]);
+  if (itemsError) {
+    console.error('[createAndSendInvoice invoice_items error]', itemsError);
+    throw new Error('Eroare la salvarea liniilor facturii: ' + itemsError.message);
+  }
 
   // Deduct stock ONLY for manually-entered parts at invoice creation time (by name, matching prior logic).
   // - Intervention-sourced and historical client parts: stock already deducted in add-part-action.ts when added to intervention
@@ -257,11 +285,10 @@ export async function createAndSendInvoice(formData: FormData) {
         address: tenant.address || undefined,
         logo_url: tenant.logo_url || undefined,
       },
-      items: [...serviceItems, ...partItems].map((i: any) => ({
+      items: [...serviceItems, ...partItems, ...laborItems].map((i: any) => ({
         description: i.description,
         quantity: Number(i.quantity),
         unit_price: Number(i.unit_price),
-        cost: i.cost ? Number(i.cost) : undefined,
         total: Number(i.total),
       })),
     });
