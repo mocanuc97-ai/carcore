@@ -109,7 +109,8 @@ export default function InterventionsPage() {
     setCatalogLoading(false);
   };
 
-  const handleDeleteCatalogEntry = async (id: string) => {
+  const handleDeleteCatalogEntry = async (id: string, name: string) => {
+    if (!confirm(`Ștergi tipul de intervenție "${name}" din listă?`)) return;
     const result = await deleteInterventionCatalogEntry(id);
     if (result?.error) {
       toast.error(result.error);
@@ -288,8 +289,8 @@ export default function InterventionsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDeleteCatalogEntry(c.id)}
-                    className="text-zinc-300 hover:text-red-600 text-xs px-1.5 opacity-0 group-hover:opacity-100"
+                    onClick={() => handleDeleteCatalogEntry(c.id, c.name)}
+                    className="text-zinc-300 hover:text-red-600 text-xs px-1.5"
                     title="Șterge din listă"
                     data-testid={`catalog-delete-${c.id}`}
                   >

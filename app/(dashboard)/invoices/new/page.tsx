@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { createAndSendInvoice } from '../actions';
@@ -19,6 +19,11 @@ export default function NewInvoicePage() {
   const [loading, setLoading] = useState(false);
   const [inventory, setInventory] = useState<any[]>([]);
   const [activeSuggestionRow, setActiveSuggestionRow] = useState<number | null>(null);
+  // Mirrors `loading` but updates synchronously (refs don't wait for a
+  // re-render), so a second click fired before React commits the first
+  // setLoading(true) is still caught — the `loading` state alone left a gap
+  // where the submit button's disabled attribute hadn't updated yet.
+  const submittingRef = useRef(false);
 
   const supabase = createClient();
 
@@ -135,10 +140,15 @@ export default function NewInvoicePage() {
 
   function selectPartSuggestion(index: number, suggestion: { name: string; lastPrice: number }) {
     const updated = [...manualParts];
+    // Only prefill cost from the last purchase price if the row is still at
+    // its untouched default (0) — otherwise a re-pick (e.g. correcting the
+    // name after already entering a deliberate cost) would silently clobber
+    // a manual edit with no warning.
+    const currentCost = updated[index].cost;
     updated[index] = {
       ...updated[index],
       name: suggestion.name,
-      cost: suggestion.lastPrice || updated[index].cost,
+      cost: currentCost === 0 && suggestion.lastPrice ? suggestion.lastPrice : currentCost,
     };
     setManualParts(updated);
     setActiveSuggestionRow(null);
@@ -195,12 +205,18 @@ export default function NewInvoicePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
+    const stopSubmitting = () => {
+      submittingRef.current = false;
+      setLoading(false);
+    };
 
     // Client-side validation to prevent bypass of weak HTML (negatives, empty, no items)
     if (!selectedVehicleId || !selectedClientId) {
       toast.error('Selectează o mașină (clientul se identifică automat)');
-      setLoading(false);
+      stopSubmitting();
       return;
     }
 
@@ -225,7 +241,7 @@ export default function NewInvoicePage() {
 
     if (!hasServices && !hasParts && !hasLabor) {
       toast.error('Trebuie să selectezi cel puțin un serviciu, o piesă sau manoperă cu preț/cantitate pozitivă');
-      setLoading(false);
+      stopSubmitting();
       return;
     }
 
@@ -234,7 +250,7 @@ export default function NewInvoicePage() {
       const avail = getStockForPartName(p.name);
       if (avail !== Infinity && avail < p.qty) {
         toast.error(`Stoc insuficient pentru piesa manuală "${p.name}" (disponibil: ${avail}, cerut: ${p.qty})`);
-        setLoading(false);
+        stopSubmitting();
         return;
       }
     }
@@ -272,7 +288,7 @@ export default function NewInvoicePage() {
     } catch (err: any) {
       toast.error(err.message || 'Eroare la creare factură');
     }
-    setLoading(false);
+    stopSubmitting();
   };
 
   return (
